@@ -1,0 +1,254 @@
+<<div id="modal-time">...</div>
+
+<script>
+    // --- API KEY ---
+    const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo", // <--- SUA CHAVE AQUI
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let exCount = 0;
+        let html5QrcodeScanner = null;
+        
+        // --- NOVIDADE: ID DA SESSÃO (Carimbo Único deste Treino) ---
+        // Cria um ID baseado na hora exata que abriu a página (ex: 17123456789)
+        const workoutSessionId = Date.now(); 
+
+        // Timer Geral
+        let startTime = new Date();
+        let workoutInterval;
+        let restInterval;
+        let currentEditingBlockId = null;
+
+        // --- INICIALIZAÇÃO ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                startWorkoutTimer();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function startWorkoutTimer() {
+            workoutInterval = setInterval(() => {
+                const now = new Date();
+                const diff = Math.floor((now - startTime) / 1000);
+                const h = Math.floor(diff / 3600).toString().padStart(2,'0');
+                const m = Math.floor((diff % 3600) / 60).toString().padStart(2,'0');
+                const s = (diff % 60).toString().padStart(2,'0');
+                document.getElementById('timer-duration').innerText = `${h}:${m}:${s}`;
+            }, 1000);
+        }
+
+        // --- MODAL, SCANNER E UI (Mantidos iguais) ---
+        function openModal() { document.getElementById('modal-add').style.display = 'flex'; }
+        function closeModal() { 
+            document.getElementById('modal-add').style.display = 'none';
+            stopScanner();
+        }
+        function openTimeModal(blockId) {
+            currentEditingBlockId = blockId;
+            document.getElementById('modal-time').style.display = 'flex';
+        }
+        function closeTimeModal() {
+            document.getElementById('modal-time').style.display = 'none';
+            currentEditingBlockId = null;
+        }
+        function selectRestTime(seconds) {
+            if (currentEditingBlockId) {
+                const block = document.getElementById(`ex-block-${currentEditingBlockId}`);
+                block.setAttribute('data-rest', seconds);
+                let text = `${seconds}s`;
+                if(seconds >= 60) text = `${Math.floor(seconds/60)}min ${seconds%60 > 0 ? seconds%60+'s' : ''}`;
+                document.getElementById(`btn-rest-${currentEditingBlockId}`).innerHTML = `⏱ Tempo de Descanso: ${text}`;
+            }
+            closeTimeModal();
+        }
+
+        // --- SCANNER ---
+        function startScanner() {
+            document.getElementById('modal-buttons').style.display = 'none';
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('scan-status').style.display = 'block';
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+                .catch(err => { alert("Erro na câmera: " + err); closeModal(); });
+        }
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('reader').innerHTML = "";
+                }).catch(err => console.log(err));
+                html5QrcodeScanner = null;
+            }
+            document.getElementById('modal-buttons').style.display = 'block';
+            document.getElementById('reader').style.display = 'none';
+            document.getElementById('scan-status').style.display = 'none';
+        }
+        function onScanSuccess(decodedText) {
+            let machineId = decodedText;
+            if(decodedText.includes('?id=')) machineId = decodedText.split('?id=')[1];
+            stopScanner();
+            closeModal();
+            addAutoExercise(machineId.trim().toUpperCase());
+        }
+
+        // --- EXERCÍCIOS ---
+        function addManualExercise() { closeModal(); createExerciseBlock(null, "Manual"); }
+        function addAutoExercise(machineId) { createExerciseBlock(machineId, "Automático"); }
+
+        function createExerciseBlock(machineId, type) {
+            exCount++;
+            const container = document.getElementById('workout-list');
+            const isAuto = (type === "Automático");
+            const extraClass = isAuto ? "auto-connected" : "";
+            const badgeClass = isAuto ? "badge-auto" : "badge-manual";
+            const defaultName = isAuto ? `Máquina (${machineId})` : "Exercício Livre";
+
+            const html = `
+            <div class="exercise-container ${extraClass}" id="ex-block-${exCount}" data-machine="${machineId || ''}" data-rest="60">
+                <div class="exercise-header-top">
+                    <div class="exercise-number">${exCount}</div>
+                    <input type="text" class="exercise-name" value="${defaultName}">
+                    <span class="badge ${badgeClass}">${type}</span>
+                </div>
+                <button class="rest-config-btn" id="btn-rest-${exCount}" onclick="openTimeModal(${exCount})">
+                    ⏱ Tempo de Descanso: 60s
+                </button>
+                <table class="series-table">
+                    <thead><tr class="series-header"><th>SÉRIE</th><th>CARGA (KG)</th><th>REPS</th><th>OK</th></tr></thead>
+                    <tbody id="tbody-${exCount}">${createRowHTML(1)}</tbody>
+                </table>
+                <button onclick="addSet(${exCount})" style="width:100%; padding:12px; margin-top:15px; background:#1C1C1E; border:none; color:#007AFF; border-radius:8px; font-weight:600; font-size:12px;">+ ADICIONAR SÉRIE</button>
+            </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            if (isAuto && machineId) connectToMachine(machineId, exCount);
+        }
+
+        function createRowHTML(num) {
+            return `<tr class="series-row">
+                <td style="font-weight:bold; color:#555;">${num}</td>
+                <td><input type="number" placeholder="0" class="input-kg" oninput="calculateStats()"></td>
+                <td><input type="number" placeholder="0" class="input-reps" oninput="calculateStats()"></td>
+                <td>
+                    <button class="check-btn" onclick="finishSet(this)">
+                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg>
+                    </button>
+                </td>
+            </tr>`;
+        }
+
+        function addSet(exId) {
+            const tbody = document.getElementById(`tbody-${exId}`);
+            tbody.insertAdjacentHTML('beforeend', createRowHTML(tbody.children.length + 1));
+        }
+
+        function connectToMachine(id, uiId) {
+            db.ref(`equipamentos/${id}/tempo_real/contagem`).on('value', (snapshot) => {
+                const valor = snapshot.val();
+                if (valor === null) return;
+                const block = document.getElementById(`ex-block-${uiId}`);
+                if (!block) return;
+                const rows = block.querySelectorAll('.series-row');
+                for (let row of rows) {
+                    if (!row.querySelector('.check-btn').classList.contains('completed')) {
+                        const input = row.querySelector('.input-reps');
+                        input.value = valor;
+                        block.querySelectorAll('.input-reps').forEach(i => i.classList.remove('active-sensor'));
+                        input.classList.add('active-sensor');
+                        calculateStats();
+                        break;
+                    }
+                }
+            });
+        }
+
+        // --- SALVAR DADOS (AQUI ESTÁ A MUDANÇA IMPORTANTE) ---
+        function finishSet(btn) {
+            if (!currentUser) return;
+            const row = btn.closest('tr');
+            const inputs = row.querySelectorAll('input');
+            const block = row.closest('.exercise-container');
+            const machineId = block.getAttribute('data-machine');
+            const exName = block.querySelector('.exercise-name').value;
+            const restTime = parseInt(block.getAttribute('data-rest')) || 60;
+
+            if (btn.classList.contains('completed')) {
+                btn.classList.remove('completed');
+                inputs.forEach(i => i.disabled = false);
+                stopRest();
+            } else {
+                btn.classList.add('completed');
+                inputs.forEach(i => { i.disabled = true; i.classList.remove('active-sensor'); });
+
+                const kg = row.querySelector('.input-kg').value || 0;
+                const reps = row.querySelector('.input-reps').value || 0;
+                
+                // SALVANDO COM O ID DA SESSÃO (sessaoId)
+                db.ref(`usuarios/${currentUser.uid}/historico`).push({
+                    exercicio: exName,
+                    carga: kg,
+                    repeticoes: reps,
+                    maquina: machineId || "Manual",
+                    data: new Date().toISOString(),
+                    sessaoId: workoutSessionId  // <--- NOVO CAMPO
+                });
+
+                if (machineId) db.ref(`equipamentos/${machineId}/tempo_real/reset`).set(1);
+                startRest(restTime);
+            }
+            calculateStats();
+        }
+
+        function startRest(duration) {
+            stopRest();
+            const toast = document.getElementById('timer-toast');
+            const display = document.getElementById('rest-countdown');
+            let timeLeft = duration;
+            toast.classList.add('visible');
+            updateDisplay(timeLeft, display);
+            restInterval = setInterval(() => {
+                timeLeft--;
+                updateDisplay(timeLeft, display);
+                if(timeLeft <= 0) stopRest();
+            }, 1000);
+        }
+        function updateDisplay(time, element) {
+            const m = Math.floor(time / 60);
+            const s = time % 60;
+            element.innerText = `${m}:${s<10?'0'+s:s}`;
+        }
+        function stopRest() {
+            clearInterval(restInterval);
+            document.getElementById('timer-toast').classList.remove('visible');
+        }
+        function calculateStats() {
+            let totalVol = 0;
+            let totalSets = 0;
+            document.querySelectorAll('.series-row').forEach(row => {
+                const kg = parseFloat(row.querySelector('.input-kg').value) || 0;
+                const reps = parseFloat(row.querySelector('.input-reps').value) || 0;
+                if(kg > 0 && reps > 0) totalVol += (kg * reps);
+                if (row.querySelector('.check-btn').classList.contains('completed')) totalSets++;
+            });
+            document.getElementById('total-vol').innerText = totalVol + " kg";
+            document.getElementById('total-sets').innerText = totalSets;
+        }
+        function finishWorkout() {
+            if(confirm("Deseja finalizar o treino e voltar ao painel?")) {
+                window.location.href = "dashboard.html";
+            }
+        }
+    </script>
