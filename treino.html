@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Treino Pro</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        /* --- VISUAL ESTILO "MONITOR PRO" --- */
+        :root { 
+            --bg-color: #000000; 
+            --card-bg: #111111; 
+            --accent-blue: #007AFF; 
+            --accent-green: #30D158; 
+            --input-bg: #1C1C1E; 
+            --text-gray: #8E8E93;
+            --border-color: #2C2C2E;
+        }
+        
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: white; padding-bottom: 120px; }
+
+        /* HEADER SUPERIOR */
+        header { 
+            display: flex; justify-content: space-between; align-items: center; 
+            padding: 15px 20px; background-color: var(--bg-color); 
+            border-bottom: 1px solid var(--border-color); 
+            position: sticky; top: 0; z-index: 50; 
+        }
+        .header-title { font-weight: 800; font-size: 18px; letter-spacing: 0.5px; }
+        .btn-finish { 
+            background-color: var(--accent-blue); color: white; border: none; 
+            padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer; 
+        }
+
+        /* BARRA DE ESTATÍSTICAS */
+        .stats-bar { 
+            display: flex; justify-content: space-around; padding: 15px 0; 
+            background: var(--bg-color); border-bottom: 8px solid #0a0a0a; 
+        }
+        .stat-item { text-align: center; }
+        .stat-item small { color: var(--text-gray); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 4px; }
+        .stat-item span { display: block; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+        /* EXERCÍCIOS */
+        .exercise-container { 
+            padding: 20px; border-bottom: 1px solid var(--border-color); position: relative; 
+            background-color: var(--bg-color);
+        }
+        .exercise-container.auto-connected { 
+            background: linear-gradient(90deg, rgba(0,122,255,0.08) 0%, rgba(0,0,0,0) 100%);
+            border-left: 3px solid var(--accent-blue);
+        }
+
+        .exercise-header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 5px; }
+        
+        .exercise-number { 
+            width: 28px; height: 28px; background: #333; border-radius: 50%; 
+            display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; 
+            color: #ddd; flex-shrink: 0;
+        }
+        .exercise-name { 
+            font-size: 18px; font-weight: 700; color: var(--accent-blue); 
+            background: transparent; border: none; width: 100%; outline: none;
+        }
+
+        /* BOTÃO DE CONFIGURAÇÃO DE DESCANSO (NOVIDADE) */
+        .rest-config-btn {
+            background: transparent; border: none; color: var(--accent-blue);
+            font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 5px;
+            margin-left: 40px; margin-bottom: 15px; cursor: pointer; opacity: 0.9;
+        }
+        .rest-config-btn:active { opacity: 0.5; }
+
+        /* TABELA */
+        .series-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .series-header th { color: var(--text-gray); font-size: 10px; text-transform: uppercase; padding-bottom: 5px; font-weight: normal; }
+        .series-row td { padding: 0 4px; text-align: center; vertical-align: middle; }
+        
+        input[type="number"] { 
+            width: 100%; background-color: var(--input-bg); border: 1px solid transparent; 
+            border-radius: 8px; padding: 12px 0; color: white; text-align: center; 
+            font-size: 18px; font-weight: 600; transition: all 0.2s; 
+        }
+        input:focus { outline: none; border-color: var(--accent-blue); background-color: #252525; }
+        input.active-sensor { 
+            border: 1px solid var(--accent-blue); 
+            box-shadow: 0 0 10px rgba(0,122,255,0.3); 
+            background-color: rgba(0,122,255,0.1);
+        }
+
+        .check-btn { 
+            width: 38px; height: 38px; background-color: var(--input-bg); border-radius: 8px; 
+            border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; 
+            color: #555; transition: 0.2s; 
+        }
+        .check-btn.completed { background-color: #142E18; color: var(--accent-green); border: 1px solid #1B4020; }
+        .check-btn svg { width: 20px; height: 20px; fill: currentColor; }
+
+        .btn-add-main { 
+            width: 90%; margin: 30px auto; display: block; 
+            background-color: var(--accent-blue); color: white; border: none; 
+            padding: 16px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; 
+            box-shadow: 0 4px 15px rgba(0,122,255,0.3);
+        }
+
+        /* TOAST DE DESCANSO */
+        #timer-toast { 
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(200px); 
+            background-color: #222; border: 1px solid #333; padding: 12px 25px; border-radius: 50px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.9); display: flex; align-items: center; gap: 20px; 
+            transition: 0.4s; z-index: 1000; min-width: 250px; justify-content: space-between; 
+        }
+        #timer-toast.visible { transform: translateX(-50%) translateY(0); }
+        .timer-display { font-family: monospace; font-size: 22px; font-weight: bold; color: var(--accent-blue); }
+        .timer-label { color: #888; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+
+        /* MODAIS */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; align-items: center; justify-content: center; }
+        .modal-card { background: var(--card-bg); width: 90%; max-width: 400px; padding: 30px; border-radius: 20px; text-align: center; border: 1px solid #333; }
+        #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 10px; display: none; }
+        
+        .btn-choice { width: 100%; padding: 16px; margin-bottom: 12px; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-auto { background-color: var(--accent-blue); color: white; }
+        .btn-manual { background-color: var(--input-bg); color: white; }
+
+        /* GRID DE TEMPOS */
+        .time-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .btn-time { 
+            background: var(--input-bg); border: 1px solid #333; color: white; 
+            padding: 15px 0; border-radius: 10px; font-weight: bold; cursor: pointer; 
+        }
+        .btn-time:active { background: var(--accent-blue); border-color: var(--accent-blue); }
+
+        .badge { font-size: 9px; padding: 3px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; margin-left: auto; }
+        .badge-auto { background: var(--accent-blue); color: white; }
+        .badge-manual { background: #333; color: #777; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span class="header-title">Meu Treino</span>
+        <button class="btn-finish" onclick="finishWorkout()">Concluir</button>
+    </header>
+
+    <div class="stats-bar">
+        <div class="stat-item"><small>Duração</small><span id="timer-duration">00:00:00</span></div>
+        <div class="stat-item"><small>Volume</small><span id="total-vol">0 kg</span></div>
+        <div class="stat-item"><small>Séries</small><span id="total-sets">0</span></div>
+    </div>
+
+    <div id="workout-list"></div>
+
+    <button class="btn-add-main" onclick="openModal()">+ ADICIONAR EXERCÍCIO</button>
+
+    <div id="timer-toast">
+        <div><span class="timer-label">Descanso</span></div>
+        <span class="timer-display" id="rest-countdown">00:00</span>
+        <button onclick="stopRest()" style="background:transparent; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+    </div>
+
+    <div class="modal-overlay" id="modal-add">
+        <div class="modal-card">
+            <span style="font-size: 20px; font-weight: bold; display: block; margin-bottom: 25px; color:white;">Novo Exercício</span>
+            <div id="reader"></div>
+            <p id="scan-status" style="font-size:12px; color:#888; margin-bottom:10px; display:none;">Aponte para o QR Code...</p>
+            <div id="modal-buttons">
+                <button class="btn-choice btn-auto" onclick="startScanner()">📷 Conectar Máquina</button>
+                <button class="btn-choice btn-manual" onclick="addManualExercise()">✏️ Manual / Livre</button>
+            </div>
+            <button onclick="closeModal()" style="margin-top:10px; background:none; border:none; color:#666; padding:10px;">Cancelar</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-time">
+        <div class="modal-card">
+            <span style="font-size: 18px; font-weight: bold; display: block; margin-bottom: 20px; color:white;">Tempo de Descanso</span>
+            <div class="time-grid">
+                <button class="btn-time" onclick="selectRestTime(30)">30s</button>
+                <button class="btn-time" onclick="selectRestTime(45)">45s</button>
+                <button class="btn-time" onclick="selectRestTime(60)">60s</button>
+                <button class="btn-time" onclick="selectRestTime(90)">1m 30s</button>
+                <button class="btn-time" onclick="selectRestTime(120)">2 min</button>
+                <button class="btn-time" onclick="selectRestTime(180)">3 min</button>
+            </div>
+            <button onclick="closeTimeModal()" style="margin-top:10px; background:none; border:none; color:#666; padding:10px;">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- API KEY ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo", 
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let exCount = 0;
+        let html5QrcodeScanner = null;
+        
+        // Timer Geral
+        let startTime = new Date();
+        let workoutInterval;
+
+        // Timer de Descanso
+        let restInterval;
+        // Variável auxiliar para saber qual exercício estamos editando o tempo
+        let currentEditingBlockId = null;
+
+        // --- INICIALIZAÇÃO ---
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                startWorkoutTimer();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function startWorkoutTimer() {
+            workoutInterval = setInterval(() => {
+                const now = new Date();
+                const diff = Math.floor((now - startTime) / 1000);
+                const h = Math.floor(diff / 3600).toString().padStart(2,'0');
+                const m = Math.floor((diff % 3600) / 60).toString().padStart(2,'0');
+                const s = (diff % 60).toString().padStart(2,'0');
+                document.getElementById('timer-duration').innerText = `${h}:${m}:${s}`;
+            }, 1000);
+        }
+
+        // --- MODAL DE SCANNER/ADD ---
+        function openModal() { document.getElementById('modal-add').style.display = 'flex'; }
+        function closeModal() { 
+            document.getElementById('modal-add').style.display = 'none';
+            stopScanner();
+        }
+
+        // --- MODAL DE TEMPO (NOVO) ---
+        function openTimeModal(blockId) {
+            currentEditingBlockId = blockId;
+            document.getElementById('modal-time').style.display = 'flex';
+        }
+
+        function closeTimeModal() {
+            document.getElementById('modal-time').style.display = 'none';
+            currentEditingBlockId = null;
+        }
+
+        function selectRestTime(seconds) {
+            if (currentEditingBlockId) {
+                // Atualiza o atributo visual e de dados do bloco
+                const block = document.getElementById(`ex-block-${currentEditingBlockId}`);
+                block.setAttribute('data-rest', seconds);
+                
+                // Formata o texto do botão
+                let text = `${seconds}s`;
+                if(seconds >= 60) text = `${Math.floor(seconds/60)}min ${seconds%60 > 0 ? seconds%60+'s' : ''}`;
+                
+                document.getElementById(`btn-rest-${currentEditingBlockId}`).innerHTML = `⏱ Tempo de Descanso: ${text}`;
+            }
+            closeTimeModal();
+        }
+
+        // --- SCANNER ---
+        function startScanner() {
+            document.getElementById('modal-buttons').style.display = 'none';
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('scan-status').style.display = 'block';
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+                .catch(err => { alert("Erro na câmera: " + err); closeModal(); });
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('reader').innerHTML = "";
+                }).catch(err => console.log(err));
+                html5QrcodeScanner = null;
+            }
+            document.getElementById('modal-buttons').style.display = 'block';
+            document.getElementById('reader').style.display = 'none';
+            document.getElementById('scan-status').style.display = 'none';
+        }
+
+        function onScanSuccess(decodedText) {
+            let machineId = decodedText;
+            if(decodedText.includes('?id=')) machineId = decodedText.split('?id=')[1];
+            stopScanner();
+            closeModal();
+            addAutoExercise(machineId.trim().toUpperCase());
+        }
+
+        // --- CRIAÇÃO DE BLOCOS ---
+        function addManualExercise() { closeModal(); createExerciseBlock(null, "Manual"); }
+        function addAutoExercise(machineId) { createExerciseBlock(machineId, "Automático"); }
+
+        function createExerciseBlock(machineId, type) {
+            exCount++;
+            const container = document.getElementById('workout-list');
+            const isAuto = (type === "Automático");
+            const extraClass = isAuto ? "auto-connected" : "";
+            const badgeClass = isAuto ? "badge-auto" : "badge-manual";
+            const defaultName = isAuto ? `Máquina (${machineId})` : "Exercício Livre";
+
+            // NOTA: Adicionei o data-rest="60" (padrão 1 minuto) e o botão de configuração
+            const html = `
+            <div class="exercise-container ${extraClass}" id="ex-block-${exCount}" data-machine="${machineId || ''}" data-rest="60">
+                <div class="exercise-header-top">
+                    <div class="exercise-number">${exCount}</div>
+                    <input type="text" class="exercise-name" value="${defaultName}">
+                    <span class="badge ${badgeClass}">${type}</span>
+                </div>
+                
+                <button class="rest-config-btn" id="btn-rest-${exCount}" onclick="openTimeModal(${exCount})">
+                    ⏱ Tempo de Descanso: 60s
+                </button>
+
+                <table class="series-table">
+                    <thead>
+                        <tr class="series-header"><th>SÉRIE</th><th>CARGA (KG)</th><th>REPS</th><th>OK</th></tr>
+                    </thead>
+                    <tbody id="tbody-${exCount}">
+                        ${createRowHTML(1)}
+                    </tbody>
+                </table>
+                <button onclick="addSet(${exCount})" style="width:100%; padding:12px; margin-top:15px; background:#1C1C1E; border:none; color:#007AFF; border-radius:8px; font-weight:600; font-size:12px;">+ ADICIONAR SÉRIE</button>
+            </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+
+            if (isAuto && machineId) connectToMachine(machineId, exCount);
+        }
+
+        function createRowHTML(num) {
+            return `<tr class="series-row">
+                <td style="font-weight:bold; color:#555;">${num}</td>
+                <td><input type="number" placeholder="0" class="input-kg" oninput="calculateStats()"></td>
+                <td><input type="number" placeholder="0" class="input-reps" oninput="calculateStats()"></td>
+                <td>
+                    <button class="check-btn" onclick="finishSet(this)">
+                        <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"></path></svg>
+                    </button>
+                </td>
+            </tr>`;
+        }
+
+        function addSet(exId) {
+            const tbody = document.getElementById(`tbody-${exId}`);
+            tbody.insertAdjacentHTML('beforeend', createRowHTML(tbody.children.length + 1));
+        }
+
+        function connectToMachine(id, uiId) {
+            db.ref(`equipamentos/${id}/tempo_real/contagem`).on('value', (snapshot) => {
+                const valor = snapshot.val();
+                if (valor === null) return;
+                const block = document.getElementById(`ex-block-${uiId}`);
+                if (!block) return;
+                const rows = block.querySelectorAll('.series-row');
+                for (let row of rows) {
+                    if (!row.querySelector('.check-btn').classList.contains('completed')) {
+                        const input = row.querySelector('.input-reps');
+                        input.value = valor;
+                        block.querySelectorAll('.input-reps').forEach(i => i.classList.remove('active-sensor'));
+                        input.classList.add('active-sensor');
+                        calculateStats();
+                        break;
+                    }
+                }
+            });
+        }
+
+        // --- FINALIZAR SÉRIE ---
+        function finishSet(btn) {
+            if (!currentUser) return;
+            const row = btn.closest('tr');
+            const inputs = row.querySelectorAll('input');
+            const block = row.closest('.exercise-container');
+            const machineId = block.getAttribute('data-machine');
+            const exName = block.querySelector('.exercise-name').value;
+            
+            // LER O TEMPO CONFIGURADO NO BLOCO
+            const restTime = parseInt(block.getAttribute('data-rest')) || 60;
+
+            if (btn.classList.contains('completed')) {
+                btn.classList.remove('completed');
+                inputs.forEach(i => i.disabled = false);
+                stopRest();
+            } else {
+                btn.classList.add('completed');
+                inputs.forEach(i => { i.disabled = true; i.classList.remove('active-sensor'); });
+
+                const kg = row.querySelector('.input-kg').value || 0;
+                const reps = row.querySelector('.input-reps').value || 0;
+                
+                db.ref(`usuarios/${currentUser.uid}/historico`).push({
+                    exercicio: exName,
+                    carga: kg,
+                    repeticoes: reps,
+                    maquina: machineId || "Manual",
+                    data: new Date().toISOString()
+                });
+
+                if (machineId) db.ref(`equipamentos/${machineId}/tempo_real/reset`).set(1);
+
+                // INICIAR DESCANSO COM O TEMPO PERSONALIZADO
+                startRest(restTime);
+            }
+            calculateStats();
+        }
+
+        // --- LÓGICA DO TIMER DE DESCANSO ---
+        function startRest(duration) {
+            stopRest();
+            const toast = document.getElementById('timer-toast');
+            const display = document.getElementById('rest-countdown');
+            let timeLeft = duration;
+            
+            toast.classList.add('visible');
+            
+            // Atualiza imediatamente para não esperar 1s
+            updateDisplay(timeLeft, display);
+
+            restInterval = setInterval(() => {
+                timeLeft--;
+                updateDisplay(timeLeft, display);
+                if(timeLeft <= 0) stopRest();
+            }, 1000);
+        }
+
+        function updateDisplay(time, element) {
+            const m = Math.floor(time / 60);
+            const s = time % 60;
+            element.innerText = `${m}:${s<10?'0'+s:s}`;
+        }
+
+        function stopRest() {
+            clearInterval(restInterval);
+            document.getElementById('timer-toast').classList.remove('visible');
+        }
+
+        function calculateStats() {
+            let totalVol = 0;
+            let totalSets = 0;
+            document.querySelectorAll('.series-row').forEach(row => {
+                const kg = parseFloat(row.querySelector('.input-kg').value) || 0;
+                const reps = parseFloat(row.querySelector('.input-reps').value) || 0;
+                if(kg > 0 && reps > 0) totalVol += (kg * reps);
+                if (row.querySelector('.check-btn').classList.contains('completed')) totalSets++;
+            });
+            document.getElementById('total-vol').innerText = totalVol + " kg";
+            document.getElementById('total-sets').innerText = totalSets;
+        }
+
+        function finishWorkout() {
+            if(confirm("Deseja finalizar o treino e voltar ao painel?")) {
+                alert("Treino salvo com sucesso!");
+                window.location.href = "dashboard.html";
+            }
+        }
+    </script>
+</body>
+</html>
