@@ -2,7 +2,7 @@ const exerciseDB = {
     "Peitoral": [
         { 
             name: "Crucifixo (Cross Over) com Halteres", 
-            img: "https://upload.wikimedia.org/wikipedia/commons/7/74/DumbbellFlye.gif" 
+            img: "https://www.hipertrofia.org/blog/wp-content/uploads/2023/09/dumbbell-fly.gif" 
         },
         { 
             name: "Supino Reto com Barra", 
@@ -103,4 +103,5 @@ const exerciseDB = {
         "Abdominal Banco Declinado",
         "Roda Abdominal"
     ]
+
 };
