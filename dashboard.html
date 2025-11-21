@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Painel</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <style>
+        :root { --bg-color: #000000; --accent-blue: #0A84FF; --text-primary: #ffffff; }
+        body { background-color: var(--bg-color); color: var(--text-primary); font-family: -apple-system, sans-serif; padding: 20px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+        .user-info h2 { margin: 0; font-size: 24px; }
+        .user-info p { color: #888; margin: 5px 0 0 0; font-size: 14px; }
+        
+        .btn-logout { background: #333; color: white; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; }
+
+        .card-action {
+            background: #1c1c1e; border: 1px solid #333; border-radius: 15px; padding: 25px;
+            text-align: center; margin-bottom: 20px; cursor: pointer; transition: 0.2s;
+        }
+        .card-action:active { transform: scale(0.98); background: #2c2c2e; }
+        .card-action h3 { margin: 10px 0; color: var(--accent-blue); }
+        .big-icon { font-size: 40px; display: block; margin-bottom: 10px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="user-info">
+            <h2 id="user-name">Olá, Atleta</h2>
+            <p id="user-email">Carregando...</p>
+        </div>
+        <button class="btn-logout" onclick="logout()">Sair</button>
+    </div>
+
+    <div class="card-action" onclick="goToWorkout()">
+        <span class="big-icon">💪</span>
+        <h3>INICIAR TREINO</h3>
+        <p style="color:#666; font-size:13px;">Acesse a ficha e conecte nas máquinas</p>
+    </div>
+
+    <div class="card-action">
+        <span class="big-icon">📅</span>
+        <h3>MEU HISTÓRICO</h3>
+        <p style="color:#666; font-size:13px;">Veja sua evolução (Em breve)</p>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldFEr6CHoXVWp4fhhC1GZ2Io",
+            authDomain: "reptech-mvp-default-rtdb.firebaseapp.com",
+            projectId: "reptech-mvp"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // PROTEÇÃO DE ROTA: Se não tiver logado, volta pro index
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                document.getElementById('user-email').innerText = user.email;
+                // Se quiser pegar o nome, precisaria de um passo extra de atualização de perfil, 
+                // por enquanto usamos o email ou "Atleta"
+                if(user.displayName) {
+                     document.getElementById('user-name').innerText = "Olá, " + user.displayName;
+                }
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html";
+            });
+        }
+
+        function goToWorkout() {
+            // Vai para o arquivo de treino (o antigo rep2.html)
+            // Note que agora não passamos ID na URL, pois o treino é do usuário logado
+            window.location.href = "treino.html";
+        }
+    </script>
+</body>
+</html>
