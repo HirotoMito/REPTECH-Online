@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Treino Pro</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    
+    <script src="exercicios.js"></script> 
+
+    <style>
+        /* --- VISUAL --- */
+        :root { --bg-color: #000000; --card-bg: #111111; --accent-blue: #007AFF; --input-bg: #1C1C1E; --border-color: #2C2C2E; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: white; padding-bottom: 120px; }
+
+        header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--bg-color); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 50; }
+        .header-title { font-weight: 800; font-size: 18px; letter-spacing: 0.5px; }
+        .btn-finish { background-color: var(--accent-blue); color: white; border: none; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; cursor: pointer; }
+
+        .stats-bar { display: flex; justify-content: space-around; padding: 15px 0; background: var(--bg-color); border-bottom: 8px solid #0a0a0a; }
+        .stat-item { text-align: center; }
+        .stat-item small { color: #8E8E93; font-size: 10px; text-transform: uppercase; display: block; margin-bottom: 4px; }
+        .stat-item span { display: block; font-size: 18px; font-weight: 700; }
+
+        .exercise-container { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-color); }
+        .exercise-container.auto-connected { background: linear-gradient(90deg, rgba(0,122,255,0.08) 0%, rgba(0,0,0,0) 100%); border-left: 3px solid var(--accent-blue); }
+        .exercise-header-top { display: flex; align-items: center; gap: 12px; margin-bottom: 5px; }
+        .exercise-number { width: 28px; height: 28px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; color: #ddd; flex-shrink: 0; }
+        .exercise-name-btn { font-size: 18px; font-weight: 700; color: var(--accent-blue); background: transparent; border: none; width: 100%; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rest-config-btn { background: transparent; border: none; color: var(--accent-blue); font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 5px; margin-left: 40px; margin-bottom: 15px; cursor: pointer; opacity: 0.9; }
+
+        .series-table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+        .series-header th { color: #8E8E93; font-size: 10px; text-transform: uppercase; padding-bottom: 5px; font-weight: normal; }
+        .series-row td { padding: 0 4px; text-align: center; vertical-align: middle; }
+        input[type="number"] { width: 100%; background-color: var(--input-bg); border: 1px solid transparent; border-radius: 8px; padding: 12px 0; color: white; text-align: center; font-size: 18px; font-weight: 600; }
+        input:focus { border-color: var(--accent-blue); }
+        input.active-sensor { border: 1px solid var(--accent-blue); box-shadow: 0 0 10px rgba(0,122,255,0.3); background-color: rgba(0,122,255,0.1); }
+        
+        .check-btn { width: 38px; height: 38px; background-color: var(--input-bg); border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; }
+        .check-btn.completed { background-color: #142E18; color: #30D158; border: 1px solid #1B4020; }
+        .check-btn svg { width: 20px; height: 20px; fill: currentColor; }
+        
+        .btn-add-main { width: 90%; margin: 30px auto; display: block; background-color: var(--accent-blue); color: white; border: none; padding: 16px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; }
+
+        #timer-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(200px); background-color: #222; border: 1px solid #333; padding: 12px 25px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.9); display: flex; align-items: center; gap: 20px; transition: 0.4s; z-index: 1000; min-width: 250px; justify-content: space-between; }
+        #timer-toast.visible { transform: translateX(-50%) translateY(0); }
+        .timer-display { font-family: monospace; font-size: 22px; font-weight: bold; color: var(--accent-blue); }
+        .timer-label { color: #888; font-size: 11px; text-transform: uppercase; font-weight: 700; }
+
+        /* MODAIS */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 200; display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .modal-card { background: var(--card-bg); width: 95%; max-width: 400px; padding: 20px; border-radius: 20px; text-align: center; border: 1px solid #333; max-height: 85vh; display: flex; flex-direction: column; }
+        
+        .filter-header { display: flex; gap: 10px; margin-bottom: 15px; }
+        .btn-filter-pill { flex: 1; background: #222; color: white; border: 1px solid #333; padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+        .ex-search-input { width: 100%; padding: 12px; background: #1C1C1E; border: 1px solid #333; border-radius: 8px; color: white; font-size: 16px; margin-bottom: 10px; }
+        
+        .ex-list-container { overflow-y: auto; flex: 1; text-align: left; margin-top: 5px; }
+        /* ESTILO DO ITEM COM IMAGEM */
+        .ex-list-item { padding: 10px; border-bottom: 1px solid #222; color: #eee; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 15px; }
+        .ex-list-item:active { background: #222; }
+        .ex-thumb { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; background: #333; }
+        .ex-text-group { display: flex; flex-direction: column; }
+        .ex-text-group small { color: #666; font-size: 11px; }
+
+        #category-list { display: none; flex-direction: column; text-align: left; overflow-y: auto; }
+        .cat-item { padding: 15px; border-bottom: 1px solid #222; font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
+        .cat-icon { width: 30px; height: 30px; background: #222; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+        .badge { font-size: 9px; padding: 3px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; margin-left: auto; }
+        .badge-auto { background: var(--accent-blue); color: white; }
+        .badge-manual { background: #333; color: #777; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span class="header-title">Meu Treino</span>
+        <button class="btn-finish" onclick="finishWorkout()">Concluir</button>
+    </header>
+
+    <div class="stats-bar">
+        <div class="stat-item"><small>Duração</small><span id="timer-duration">00:00:00</span></div>
+        <div class="stat-item"><small>Volume</small><span id="total-vol">0 kg</span></div>
+        <div class="stat-item"><small>Séries</small><span id="total-sets">0</span></div>
+    </div>
+
+    <div id="workout-list"></div>
+
+    <button class="btn-add-main" onclick="openModal()">+ ADICIONAR EXERCÍCIO</button>
+
+    <div id="timer-toast">
+        <div><span class="timer-label">Descanso</span></div>
+        <span class="timer-display" id="rest-countdown">00:00</span>
+        <button onclick="stopRest()" style="background:transparent; border:none; color:white; font-size:24px; cursor:pointer;">&times;</button>
+    </div>
+
+    <div class="modal-overlay" id="modal-add">
+        <div class="modal-card" style="height: auto;">
+            <h3 style="margin-bottom:20px;">Novo Exercício</h3>
+            <div id="reader" style="display:none; width:100%; border-radius:10px; overflow:hidden; margin-bottom:10px;"></div>
+            <div id="modal-buttons">
+                <button onclick="startScanner()" style="width:100%; padding:15px; margin-bottom:10px; background:var(--accent-blue); border:none; border-radius:10px; color:white; font-weight:bold;">📷 Conectar Máquina</button>
+                <button onclick="addManualExercise()" style="width:100%; padding:15px; background:#222; border:none; border-radius:10px; color:white; font-weight:bold;">✏️ Manual / Livre</button>
+            </div>
+            <button onclick="closeModal()" style="margin-top:15px; background:none; border:none; color:#666; padding:10px;">Cancelar</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-time">
+        <div class="modal-card">
+            <span style="font-size: 18px; font-weight: bold; display: block; margin-bottom: 20px; color:white;">Tempo de Descanso</span>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(30)">30s</button>
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(45)">45s</button>
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(60)">60s</button>
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(90)">1m30</button>
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(120)">2m</button>
+                <button style="background:#1C1C1E; border:1px solid #333; color:white; padding:15px; border-radius:10px;" onclick="selectRestTime(180)">3m</button>
+            </div>
+            <button onclick="closeTimeModal()" style="margin-top:15px; background:none; border:none; color:#666;">Cancelar</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="modal-exercises">
+        <div class="modal-card" style="height: 85vh; padding: 20px 15px;">
+            
+            <div class="filter-header">
+                <button class="btn-filter-pill" onclick="toggleCategoryMenu()">
+                    <span id="filter-label">Todos os Músculos</span>
+                    <span>▾</span>
+                </button>
+            </div>
+
+            <input type="text" id="ex-search" class="ex-search-input" placeholder="Procurar exercício..." oninput="filterExercises()">
+            
+            <div class="ex-list-container" id="ex-list"></div>
+
+            <div class="ex-list-container" id="category-list" style="display:none;">
+                <div class="cat-item" onclick="setCategory('Todos')"><div class="cat-icon">♾️</div> Todos os Músculos</div>
+            </div>
+
+            <button onclick="closeExModal()" style="margin-top:10px; background:none; border:none; color:#666;">Fechar</button>
+        </div>
+    </div>
+
+    <script>
+        // --- API KEY (JÁ INCLUSA) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+            measurementId: "G-9Q9J9WRBMZ"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let exCount = 0;
+        let html5QrcodeScanner = null;
+        const workoutSessionId = Date.now(); 
+        let startTime = new Date();
+        let workoutInterval;
+        let restInterval;
+        let currentEditingBlockId = null;
+
+        // LÓGICA DA LISTA & CATEGORIAS
+        let currentExButtonId = null;
+        let activeCategory = "Todos";
+        let isCategoryMenuOpen = false;
+
+        auth.onAuthStateChanged(user => {
+            if (user) { currentUser = user; startWorkoutTimer(); } 
+            else { window.location.href = "index.html"; }
+        });
+
+        function startWorkoutTimer() {
+            workoutInterval = setInterval(() => {
+                const now = new Date();
+                const diff = Math.floor((now - startTime) / 1000);
+                const h = Math.floor(diff / 3600).toString().padStart(2,'0');
+                const m = Math.floor((diff % 3600) / 60).toString().padStart(2,'0');
+                const s = (diff % 60).toString().padStart(2,'0');
+                document.getElementById('timer-duration').innerText = `${h}:${m}:${s}`;
+            }, 1000);
+        }
+
+        function openExModal(btnId) {
+            currentExButtonId = btnId;
+            document.getElementById('modal-exercises').style.display = 'flex';
+            activeCategory = "Todos";
+            isCategoryMenuOpen = false;
+            toggleCategoryMenu(false); 
+            renderCategories();
+            filterExercises();
+        }
+
+        function closeExModal() { document.getElementById('modal-exercises').style.display = 'none'; }
+
+        function toggleCategoryMenu(forceState) {
+            const listDiv = document.getElementById('ex-list');
+            const menuDiv = document.getElementById('category-list');
+            const searchInput = document.getElementById('ex-search');
+            
+            if (typeof forceState !== 'undefined') isCategoryMenuOpen = forceState;
+            else isCategoryMenuOpen = !isCategoryMenuOpen;
+
+            if (isCategoryMenuOpen) {
+                listDiv.style.display = 'none';
+                searchInput.style.display = 'none';
+                menuDiv.style.display = 'flex';
+            } else {
+                listDiv.style.display = 'block';
+                searchInput.style.display = 'block';
+                menuDiv.style.display = 'none';
+            }
+        }
+
+        function renderCategories() {
+            const menuDiv = document.getElementById('category-list');
+            let html = `<div class="cat-item" onclick="setCategory('Todos')"><div class="cat-icon">♾️</div> Todos os Músculos</div>`;
+            
+            if(typeof exerciseDB !== 'undefined') {
+                Object.keys(exerciseDB).forEach(cat => {
+                    let icon = "💪";
+                    if(cat.includes("Pernas")) icon = "🦵";
+                    if(cat.includes("Peito")) icon = "👕";
+                    if(cat.includes("Costas")) icon = "🔙";
+                    html += `<div class="cat-item" onclick="setCategory('${cat}')"><div class="cat-icon">${icon}</div> ${cat}</div>`;
+                });
+            }
+            menuDiv.innerHTML = html;
+        }
+
+        function setCategory(cat) {
+            activeCategory = cat;
+            document.getElementById('filter-label').innerText = cat === "Todos" ? "Todos os Músculos" : cat;
+            toggleCategoryMenu(false);
+            filterExercises();
+        }
+
+        // --- FUNÇÃO DE FILTRO HÍBRIDA (TEXTO + OBJETO) ---
+        function filterExercises() {
+            const term = document.getElementById('ex-search').value.toLowerCase();
+            const listContainer = document.getElementById('ex-list');
+            let html = "";
+
+            if(typeof exerciseDB !== 'undefined') {
+                Object.keys(exerciseDB).forEach(cat => {
+                    if(activeCategory === "Todos" || activeCategory === cat) {
+                        exerciseDB[cat].forEach(ex => {
+                            // Detecta se é Texto ou Objeto
+                            let name = (typeof ex === 'string') ? ex : ex.name;
+                            let imgHTML = "";
+                            
+                            if(typeof ex === 'object' && ex.img) {
+                                imgHTML = `<img src="${ex.img}" class="ex-thumb">`;
+                            }
+
+                            if(name.toLowerCase().includes(term)) {
+                                html += `<div class="ex-list-item" onclick="selectExercise('${name}')">
+                                    ${imgHTML}
+                                    <div class="ex-text-group">
+                                        <span>${name}</span>
+                                        <small>${cat}</small>
+                                    </div>
+                                </div>`;
+                            }
+                        });
+                    }
+                });
+            }
+            
+            if(html === "" && term.length > 0) {
+                html = `<div class="ex-list-item" onclick="selectExercise('${term}')" style="color:var(--accent-blue);">
+                    <span>+ Criar "${term}"</span>
+                </div>`;
+            }
+            listContainer.innerHTML = html;
+        }
+
+        function selectExercise(name) {
+            if(currentExButtonId) {
+                document.getElementById(currentExButtonId).innerText = name;
+                document.getElementById(currentExButtonId).value = name;
+            }
+            closeExModal();
+        }
+
+        // --- RESTO DO SISTEMA ---
+        function openModal() { document.getElementById('modal-add').style.display = 'flex'; }
+        function closeModal() { document.getElementById('modal-add').style.display = 'none'; stopScanner(); }
+        function openTimeModal(blockId) { currentEditingBlockId = blockId; document.getElementById('modal-time').style.display = 'flex'; }
+        function closeTimeModal() { document.getElementById('modal-time').style.display = 'none'; currentEditingBlockId = null; }
+        function selectRestTime(seconds) {
+            if (currentEditingBlockId) {
+                const block = document.getElementById(`ex-block-${currentEditingBlockId}`);
+                block.setAttribute('data-rest', seconds);
+                let text = `${seconds}s`;
+                if(seconds >= 60) text = `${Math.floor(seconds/60)}min ${seconds%60 > 0 ? seconds%60+'s' : ''}`;
+                document.getElementById(`btn-rest-${currentEditingBlockId}`).innerHTML = `⏱ Tempo de Descanso: ${text}`;
+            }
+            closeTimeModal();
+        }
+
+        function startScanner() {
+            document.getElementById('modal-buttons').style.display = 'none';
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('scan-status').style.display = 'block';
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess).catch(console.error);
+        }
+        function stopScanner() {
+            if (html5QrcodeScanner) { html5QrcodeScanner.stop(); html5QrcodeScanner = null; }
+            document.getElementById('modal-buttons').style.display = 'block';
+            document.getElementById('reader').style.display = 'none';
+            document.getElementById('scan-status').style.display = 'none';
+        }
+        function onScanSuccess(decodedText) {
+            let machineId = decodedText.includes('?id=') ? decodedText.split('?id=')[1] : decodedText;
+            stopScanner(); closeModal(); addAutoExercise(machineId.trim().toUpperCase());
+        }
+
+        function addManualExercise() { closeModal(); createExerciseBlock(null, "Manual"); }
+        function addAutoExercise(machineId) { createExerciseBlock(machineId, "Automático"); }
+
+        function createExerciseBlock(machineId, type) {
+            exCount++;
+            const container = document.getElementById('workout-list');
+            const isAuto = (type === "Automático");
+            const extraClass = isAuto ? "auto-connected" : "";
+            const badgeClass = isAuto ? "badge-auto" : "badge-manual";
+            const defaultName = isAuto ? `Máquina (${machineId})` : "Toque para selecionar...";
+
+            const html = `
+            <div class="exercise-container ${extraClass}" id="ex-block-${exCount}" data-machine="${machineId || ''}" data-rest="60">
+                <div class="exercise-header-top">
+                    <div class="exercise-number">${exCount}</div>
+                    <button id="btn-name-${exCount}" class="exercise-name-btn" onclick="openExModal('btn-name-${exCount}')">${defaultName}</button>
+                    <span class="badge ${badgeClass}">${type}</span>
+                </div>
+                <button class="rest-config-btn" id="btn-rest-${exCount}" onclick="openTimeModal(${exCount})">⏱ Tempo de Descanso: 60s</button>
+                <table class="series-table">
+                    <thead><tr class="series-header"><th>SÉRIE</th><th>KG</th><th>REPS</th><th>OK</th></tr></thead>
+                    <tbody id="tbody-${exCount}">${createRowHTML(1)}</tbody>
+                </table>
+                <button onclick="addSet(${exCount})" style="width:100%; padding:12px; margin-top:15px; background:#1C1C1E; border:none; color:#007AFF; border-radius:8px; font-weight:600;">+ ADICIONAR SÉRIE</button>
+            </div>`;
+            container.insertAdjacentHTML('beforeend', html);
+            if(isAuto && machineId) connectToMachine(machineId, exCount);
+            if(!isAuto) setTimeout(() => openExModal(`btn-name-${exCount}`), 100);
+        }
+
+        function createRowHTML(num) {
+            return `<tr class="series-row"><td style="font-weight:bold; color:#555;">${num}</td><td><input type="number" placeholder="0" class="input-kg" oninput="calculateStats()"></td><td><input type="number" placeholder="0" class="input-reps" oninput="calculateStats()"></td><td><button class="check-btn" onclick="finishSet(this)">✔</button></td></tr>`;
+        }
+        function addSet(exId) { document.getElementById(`tbody-${exId}`).insertAdjacentHTML('beforeend', createRowHTML(document.getElementById(`tbody-${exId}`).children.length + 1)); }
+
+        function connectToMachine(id, uiId) {
+            db.ref(`equipamentos/${id}/tempo_real/contagem`).on('value', (snapshot) => {
+                const val = snapshot.val(); if(val===null) return;
+                const block = document.getElementById(`ex-block-${uiId}`);
+                const rows = block.querySelectorAll('.series-row');
+                for(let row of rows) {
+                    if(!row.querySelector('.check-btn').classList.contains('completed')) {
+                        const input = row.querySelector('.input-reps');
+                        input.value = val;
+                        block.querySelectorAll('.input-reps').forEach(i=>i.classList.remove('active-sensor'));
+                        input.classList.add('active-sensor');
+                        calculateStats();
+                        break;
+                    }
+                }
+            });
+        }
+
+        function finishSet(btn) {
+            if (!currentUser) return;
+            const row = btn.closest('tr');
+            const inputs = row.querySelectorAll('input');
+            const block = row.closest('.exercise-container');
+            const machineId = block.getAttribute('data-machine');
+            const exName = block.querySelector('.exercise-name-btn').innerText;
+            const restTime = parseInt(block.getAttribute('data-rest')) || 60;
+
+            if (btn.classList.contains('completed')) {
+                btn.classList.remove('completed'); inputs.forEach(i => i.disabled = false); stopRest();
+            } else {
+                btn.classList.add('completed'); inputs.forEach(i => { i.disabled = true; i.classList.remove('active-sensor'); });
+                db.ref(`usuarios/${currentUser.uid}/historico`).push({
+                    exercicio: exName, carga: row.querySelector('.input-kg').value || 0, repeticoes: row.querySelector('.input-reps').value || 0,
+                    maquina: machineId || "Manual", data: new Date().toISOString(), sessaoId: workoutSessionId
+                });
+                if (machineId) db.ref(`equipamentos/${machineId}/tempo_real/reset`).set(1);
+                startRest(restTime);
+            }
+            calculateStats();
+        }
+
+        function startRest(duration) {
+            stopRest();
+            const toast = document.getElementById('timer-toast');
+            const display = document.getElementById('rest-countdown');
+            let timeLeft = duration;
+            toast.classList.add('visible');
+            display.innerText = `${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}`;
+            restInterval = setInterval(() => {
+                timeLeft--;
+                display.innerText = `${Math.floor(timeLeft/60)}:${(timeLeft%60).toString().padStart(2,'0')}`;
+                if(timeLeft <= 0) stopRest();
+            }, 1000);
+        }
+        function stopRest() { clearInterval(restInterval); document.getElementById('timer-toast').classList.remove('visible'); }
+
+        function calculateStats() {
+            let totalVol = 0, totalSets = 0;
+            document.querySelectorAll('.series-row').forEach(row => {
+                const kg = parseFloat(row.querySelector('.input-kg').value)||0;
+                const reps = parseFloat(row.querySelector('.input-reps').value)||0;
+                if(kg>0 && reps>0) totalVol += kg*reps;
+                if(row.querySelector('.check-btn').classList.contains('completed')) totalSets++;
+            });
+            document.getElementById('total-vol').innerText = totalVol + " kg";
+            document.getElementById('total-sets').innerText = totalSets;
+        }
+        function finishWorkout() { if(confirm("Finalizar treino?")) window.location.href = "dashboard.html"; }
+    </script>
+</body>
+</html>
