@@ -2,92 +2,97 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>REPTECH - Login</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
     <style>
-        :root { --bg-color: #000000; --card-bg: #1c1c1e; --text-primary: #ffffff; --accent-blue: #0A84FF; --input-bg: #2c2c2e; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
-        body { background-color: var(--bg-color); color: var(--text-primary); height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
-
-        .logo-area { margin-bottom: 40px; text-align: center; }
-        .logo-area h1 { font-size: 32px; font-weight: 800; letter-spacing: 2px; color: var(--accent-blue); margin: 0; }
-        .logo-area p { color: #666; font-size: 14px; letter-spacing: 1px; margin-top: 5px; }
-
-        .login-card { background-color: var(--card-bg); width: 100%; max-width: 350px; padding: 30px; border-radius: 20px; border: 1px solid #333; box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+        :root { --bg-color: #000000; --card-bg: #1c1c1e; --accent-blue: #0A84FF; --text-color: #ffffff; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; flex-direction: column; }
         
-        label { font-size: 12px; color: #888; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 8px; }
+        .login-card { background: var(--card-bg); padding: 30px; border-radius: 20px; width: 90%; max-width: 350px; text-align: center; border: 1px solid #333; }
+        h1 { margin-bottom: 5px; color: var(--accent-blue); }
+        p { color: #888; font-size: 14px; margin-bottom: 25px; }
+
+        input { width: 100%; padding: 15px; margin-bottom: 15px; background: #2c2c2e; border: 1px solid #333; border-radius: 10px; color: white; font-size: 16px; box-sizing: border-box; }
+        input:focus { outline: none; border-color: var(--accent-blue); }
+
+        .btn-primary { width: 100%; padding: 15px; background: var(--accent-blue); border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        .btn-secondary { background: transparent; color: var(--accent-blue); border: none; cursor: pointer; font-size: 14px; text-decoration: underline; }
         
-        input { 
-            width: 100%; background-color: var(--input-bg); border: 2px solid transparent; 
-            padding: 15px; border-radius: 10px; color: white; font-size: 18px; text-align: center; 
-            font-family: monospace; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 20px; transition: 0.3s;
-        }
-        input:focus { outline: none; border-color: var(--accent-blue); background-color: #000; }
-
-        .btn-login { 
-            width: 100%; background-color: var(--accent-blue); color: white; border: none; 
-            padding: 15px; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; 
-            box-shadow: 0 4px 15px rgba(10, 132, 255, 0.3); transition: 0.2s;
-        }
-        .btn-login:active { transform: scale(0.98); opacity: 0.8; }
-
-        .scan-hint { margin-top: 30px; color: #444; font-size: 13px; text-align: center; }
-        .scan-icon { font-size: 40px; display: block; margin-bottom: 10px; opacity: 0.5; }
+        .error-msg { color: #ff453a; font-size: 13px; margin-bottom: 15px; display: none; }
     </style>
 </head>
 <body>
 
-    <div class="logo-area">
-        <h1>REPTECH</h1>
-        <p>SISTEMA DE TREINO V9</p>
-    </div>
-
     <div class="login-card">
-        <label>ID da Máquina</label>
-        <input type="text" id="input-id" placeholder="Ex: ECFABCD..." maxlength="12" autofocus>
-        <button class="btn-login" onclick="fazerLogin()">CONECTAR</button>
-    </div>
+        <h1>REPTECH</h1>
+        <p>Acesse seus treinos</p>
 
-    <div class="scan-hint">
-        <span class="scan-icon">📷</span>
-        <p>Escaneie o QR Code na máquina<br>para conectar automaticamente.</p>
+        <div id="error-box" class="error-msg"></div>
+
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+
+        <button class="btn-primary" onclick="login()">ENTRAR</button>
+        <button class="btn-secondary" onclick="register()">Não tem conta? Criar agora</button>
     </div>
 
     <script>
-        // Verifica se já tem um ID salvo de antes para facilitar
-        window.onload = () => {
-            const idSalvo = localStorage.getItem("reptech_last_id");
-            if(idSalvo) {
-                document.getElementById("input-id").value = idSalvo;
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldFEr6CHoXVWp4fhhC1GZ2Io",
+            authDomain: "reptech-mvp-default-rtdb.firebaseapp.com", // Ajuste padrão
+            projectId: "reptech-mvp",
+        };
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Verifica se já está logado
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                window.location.href = "dashboard.html";
             }
+        });
+
+        function login() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+            
+            auth.signInWithEmailAndPassword(email, pass)
+                .then(() => {
+                    window.location.href = "dashboard.html";
+                })
+                .catch(error => showError(error));
         }
 
-        function fazerLogin() {
-            const input = document.getElementById("input-id");
-            // Garante que remove espaços e deixa maiúsculo
-            const id = input.value.trim().toUpperCase();
-            
-            if (id.length < 6) {
-                alert("Por favor, digite um ID válido (ex: ECFABCD4E4B4).");
-                input.focus();
+        function register() {
+            const email = document.getElementById('email').value;
+            const pass = document.getElementById('password').value;
+
+            if(pass.length < 6) {
+                showError({message: "A senha deve ter pelo menos 6 caracteres."});
                 return;
             }
 
-            // Salva para a próxima vez no armazenamento do navegador
-            localStorage.setItem("reptech_last_id", id);
-
-            // AQUI ESTÁ A ALTERAÇÃO PRINCIPAL:
-            // Redireciona para rep2.html passando o ID via URL (?id=...)
-            window.location.href = `rep2.html?id=${id}`;
+            auth.createUserWithEmailAndPassword(email, pass)
+                .then(() => {
+                    alert("Conta criada! Redirecionando...");
+                    window.location.href = "dashboard.html";
+                })
+                .catch(error => showError(error));
         }
 
-        // Permite dar Enter para logar
-        document.getElementById("input-id").addEventListener("keypress", function(event) {
-            if (event.key === "Enter") {
-                fazerLogin();
-            }
-        });
+        function showError(error) {
+            const el = document.getElementById('error-box');
+            el.style.display = 'block';
+            // Tradução simples de erros comuns
+            let msg = error.message;
+            if(error.code === 'auth/wrong-password') msg = "Senha incorreta.";
+            if(error.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+            if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
+            el.innerText = msg;
+        }
     </script>
-
 </body>
 </html>
