@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Treino Híbrido</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+    <style>
+        /* --- ESTILOS GERAIS --- */
+        :root { --bg-color: #000000; --card-bg: #1c1c1e; --text-primary: #ffffff; --accent-blue: #0A84FF; --accent-green: #30D158; --input-bg: #2c2c2e; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-primary); padding-bottom: 140px; }
+
+        /* HEADER */
+        header { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background-color: var(--bg-color); border-bottom: 1px solid #333; position: sticky; top: 0; z-index: 10; }
+        .header-left { font-weight: 700; font-size: 18px; }
+
+        /* MODAL (JANELA DE ESCOLHA) */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; display: none; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
+        .modal-card { background: var(--card-bg); width: 90%; max-width: 400px; padding: 25px; border-radius: 20px; text-align: center; border: 1px solid #333; }
+        .modal-title { font-size: 20px; font-weight: bold; margin-bottom: 20px; display: block; }
+        .btn-choice { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 12px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-manual { background-color: var(--input-bg); color: white; }
+        .btn-auto { background-color: var(--accent-blue); color: white; }
+        
+        /* AREA DO SCANNER */
+        #reader { width: 100%; border-radius: 10px; overflow: hidden; margin-bottom: 10px; display: none; }
+
+        /* EXERCÍCIOS */
+        .exercise-container { padding: 20px; border-bottom: 1px solid #333; position: relative; }
+        .exercise-container.auto-connected { border-left: 4px solid var(--accent-blue); background: linear-gradient(90deg, rgba(10,132,255,0.05) 0%, rgba(0,0,0,0) 100%); }
+        
+        .badge-type { position: absolute; top: 20px; right: 20px; font-size: 10px; padding: 4px 8px; border-radius: 4px; font-weight: bold; text-transform: uppercase; }
+        .badge-manual { background: #333; color: #aaa; }
+        .badge-auto { background: var(--accent-blue); color: white; }
+
+        .exercise-header { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
+        .exercise-number { width: 30px; height: 30px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .exercise-name { font-size: 18px; font-weight: 700; color: white; background: transparent; border: none; width: 100%; }
+
+        /* TABELA E INPUTS */
+        .series-table { width: 100%; border-collapse: collapse; }
+        .series-row td { padding: 5px; text-align: center; }
+        input { width: 100%; background: var(--input-bg); border: 1px solid transparent; padding: 12px; border-radius: 8px; color: white; text-align: center; font-size: 18px; }
+        input.active-sensor { border-color: var(--accent-blue); box-shadow: 0 0 10px rgba(10,132,255,0.3); }
+        
+        .check-btn { width: 35px; height: 35px; border-radius: 8px; background: var(--input-bg); border: none; color: #888; cursor: pointer; }
+        .check-btn.completed { background: var(--accent-green); color: black; }
+
+        .btn-add-main { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--accent-blue); color: white; padding: 15px 30px; border-radius: 30px; border: none; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 90; font-size: 16px; width: 80%; max-width: 300px; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-left">Meu Treino</div>
+        <button style="background:none; border:none; color:var(--accent-blue); font-weight:bold;">Finalizar</button>
+    </header>
+
+    <div id="workout-list"></div>
+
+    <button class="btn-add-main" onclick="openModal()">+ ADICIONAR EXERCÍCIO</button>
+
+    <div class="modal-overlay" id="modal-add">
+        <div class="modal-card">
+            <span class="modal-title">Novo Exercício</span>
+            
+            <div id="reader"></div>
+            <p id="scan-status" style="font-size:12px; color:#888; margin-bottom:10px; display:none;">Aponte para o QR Code...</p>
+
+            <div id="modal-buttons">
+                <button class="btn-choice btn-auto" onclick="startScanner()">
+                    📷 Automático (Sensor)
+                </button>
+                <button class="btn-choice btn-manual" onclick="addManualExercise()">
+                    ✏️ Manual (Padrão)
+                </button>
+            </div>
+            
+            <button onclick="closeModal()" style="margin-top:15px; background:none; border:none; color:#666;">Cancelar</button>
+        </div>
+    </div>
+
+    <script>
+        // 1. CONFIGURAÇÃO FIREBASE
+        const firebaseConfig = {
+  apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+  authDomain: "reptech-mvp.firebaseapp.com",
+  databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+  projectId: "reptech-mvp",
+  storageBucket: "reptech-mvp.firebasestorage.app",
+  messagingSenderId: "350784354776",
+  appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+  measurementId: "G-9Q9J9WRBMZ"
+};
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let exCount = 0;
+        let html5QrcodeScanner = null;
+
+        // --- FUNÇÕES DE MODAL E SCANNER ---
+
+        function openModal() {
+            document.getElementById('modal-add').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal-add').style.display = 'none';
+            stopScanner(); // Para a câmera se fechar
+        }
+
+        function startScanner() {
+            // Esconde botões, mostra câmera
+            document.getElementById('modal-buttons').style.display = 'none';
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('scan-status').style.display = 'block';
+
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            
+            // Configuração da câmera
+            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+            
+            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+            .catch(err => {
+                alert("Erro ao abrir câmera: " + err);
+                closeModal();
+            });
+        }
+
+        function stopScanner() {
+            if (html5QrcodeScanner) {
+                html5QrcodeScanner.stop().then(() => {
+                    document.getElementById('reader').innerHTML = "";
+                }).catch(err => console.log(err));
+                html5QrcodeScanner = null;
+            }
+            // Reseta visual do modal
+            document.getElementById('modal-buttons').style.display = 'block';
+            document.getElementById('reader').style.display = 'none';
+            document.getElementById('scan-status').style.display = 'none';
+        }
+
+        function onScanSuccess(decodedText, decodedResult) {
+            // QR LIDO COM SUCESSO!
+            // O decodedText deve ser o ID (ex: "ECFABCD4E4B4") ou uma URL contendo o ID
+            
+            console.log(`Scan result: ${decodedText}`);
+            
+            // Tratamento simples: se for URL, tenta pegar o parâmetro ?id=
+            let machineId = decodedText;
+            if(decodedText.includes('?id=')) {
+                machineId = decodedText.split('?id=')[1];
+            }
+
+            stopScanner();
+            closeModal();
+            addAutoExercise(machineId);
+        }
+
+        // --- CRIAÇÃO DOS EXERCÍCIOS NA TELA ---
+
+        function addManualExercise() {
+            closeModal();
+            createExerciseBlock(null, "Manual");
+        }
+
+        function addAutoExercise(machineId) {
+            // Aqui vamos conectar no Firebase para ESSE exercício específico
+            createExerciseBlock(machineId, "Automático");
+        }
+
+        function createExerciseBlock(machineId, type) {
+            exCount++;
+            const container = document.getElementById('workout-list');
+            
+            // Se for Auto, adicionamos classe visual e data-attribute
+            const isAuto = (type === "Automático");
+            const extraClass = isAuto ? "auto-connected" : "";
+            const badgeClass = isAuto ? "badge-auto" : "badge-manual";
+            const defaultName = isAuto ? `Máquina ${machineId.substring(0,4)}...` : "Exercício Livre";
+
+            const html = `
+            <div class="exercise-container ${extraClass}" id="ex-block-${exCount}" data-machine="${machineId || ''}">
+                <span class="badge-type ${badgeClass}">${type}</span>
+                
+                <div class="exercise-header">
+                    <div class="exercise-number">${exCount}</div>
+                    <input type="text" class="exercise-name" value="${defaultName}" placeholder="Nome do Exercício">
+                </div>
+
+                <table class="series-table">
+                    <tbody id="tbody-${exCount}">
+                        ${createRowHTML(1)}
+                    </tbody>
+                </table>
+                
+                <button onclick="addSet(${exCount})" style="width:100%; padding:10px; margin-top:10px; background:#222; border:none; color:#888; border-radius:8px;">+ Série</button>
+            </div>`;
+
+            container.insertAdjacentHTML('beforeend', html);
+
+            // Se for automático, iniciar conexão com o Firebase IMEDIATAMENTE
+            if (isAuto && machineId) {
+                connectToMachine(machineId, exCount);
+            }
+        }
+
+        function createRowHTML(num) {
+            return `
+            <tr class="row-set">
+                <td style="width:10%; color:#666; font-weight:bold;">${num}</td>
+                <td><input type="number" placeholder="kg" class="input-kg"></td>
+                <td><input type="number" placeholder="0" class="input-reps"></td>
+                <td style="width:15%;"><button class="check-btn" onclick="finishSet(this)">✔</button></td>
+            </tr>`;
+        }
+
+        function addSet(exId) {
+            const tbody = document.getElementById(`tbody-${exId}`);
+            const nextNum = tbody.children.length + 1;
+            tbody.insertAdjacentHTML('beforeend', createRowHTML(nextNum));
+            
+            // Se for automático, precisamos garantir que o listener aponte para o novo input
+            // (A lógica de conexão cuida disso ao detectar qual input está "em aberto")
+        }
+
+        // --- LÓGICA DO SENSOR (MULTITASKING) ---
+
+        function connectToMachine(id, uiId) {
+            console.log(`Conectando Bloco ${uiId} na máquina ${id}`);
+            
+            const ref = db.ref(`equipamentos/${id}/tempo_real/contagem`);
+            
+            // Listener específico para ESTE bloco de exercício
+            ref.on('value', (snapshot) => {
+                const valor = snapshot.val();
+                if (valor === null) return;
+
+                // Encontra qual input de repetição está "pendente" neste bloco
+                // Regra: O primeiro input que não tem a linha concluída (check)
+                const block = document.getElementById(`ex-block-${uiId}`);
+                const rows = block.querySelectorAll('.row-set');
+                
+                let activeInput = null;
+
+                for (let row of rows) {
+                    const btn = row.querySelector('.check-btn');
+                    if (!btn.classList.contains('completed')) {
+                        activeInput = row.querySelector('.input-reps');
+                        // Adiciona classe visual para mostrar que está recebendo dados
+                        activeInput.classList.add('active-sensor');
+                        break; // Achou o primeiro livre, para aqui
+                    }
+                }
+
+                // Atualiza o valor
+                if (activeInput) {
+                    activeInput.value = valor;
+                }
+            });
+        }
+
+        // --- FINALIZAR SÉRIE ---
+        function finishSet(btn) {
+            const row = btn.closest('tr');
+            const inputs = row.querySelectorAll('input');
+            const block = row.closest('.exercise-container');
+            const machineId = block.getAttribute('data-machine');
+
+            if (btn.classList.contains('completed')) {
+                // Desmarcar (Reabrir edição)
+                btn.classList.remove('completed');
+                inputs.forEach(i => i.disabled = false);
+            } else {
+                // Marcar como feito
+                btn.classList.add('completed');
+                inputs.forEach(i => {
+                    i.disabled = true;
+                    i.classList.remove('active-sensor');
+                });
+
+                // SE for automático, mandar RESET para a máquina
+                if (machineId) {
+                    console.log(`Resetando máquina ${machineId}`);
+                    db.ref(`equipamentos/${machineId}/tempo_real/reset`).set(1);
+                    
+                    // Opcional: Dar um pequeno delay para limpar o input da próxima série
+                    // para não pegar o "resquício" antes do reset do hardware
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
