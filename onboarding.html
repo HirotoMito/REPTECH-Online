@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Configuração Inicial</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* --- PALETA PREMIUM REPTECH --- */
+        :root { 
+            --bg-color: #0B0D0F;
+            --card-bg: #2A2E35;
+            --azul-tech: #0D3B66;
+            --verde-energia: #1FBF77;
+            --cinza-gelo: #E5E7EB;
+            --cinza-texto: #9CA3AF;
+            --border-color: rgba(255,255,255,0.05);
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--cinza-gelo);
+            font-family: -apple-system, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* BARRA DE PROGRESSO SUPERIOR */
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--card-bg);
+            z-index: 1000;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--verde-energia);
+            width: 0%;
+            transition: width 0.4s ease;
+            border-radius: 0 2px 2px 0;
+        }
+
+        /* CONTAINER PRINCIPAL */
+        .onboarding-container {
+            max-width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            padding: 60px 25px 40px;
+        }
+
+        /* HEADER */
+        .onboarding-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: 800;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #0D3B66 0%, #1FBF77 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--cinza-texto);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        /* ETAPAS */
+        .step {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .step-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        .step-description {
+            color: var(--cinza-texto);
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        /* FORMULÁRIOS */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            color: var(--cinza-texto);
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input, select {
+            width: 100%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 15px;
+            color: var(--cinza-gelo);
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--verde-energia);
+        }
+
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        /* OBJETIVOS */
+        .objetivos-grid {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .objetivo-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .objetivo-card:hover {
+            border-color: var(--cinza-texto);
+        }
+
+        .objetivo-card.selected {
+            border-color: var(--verde-energia);
+            background: rgba(31, 191, 119, 0.1);
+        }
+
+        .objetivo-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .objetivo-title {
+            font-weight: 700;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .objetivo-desc {
+            color: var(--cinza-texto);
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        /* BOTÕES */
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: var(--verde-energia);
+            color: #000;
+        }
+
+        .btn-primary:disabled {
+            background: var(--cinza-texto);
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--cinza-texto);
+            border: 1px solid var(--border-color);
+        }
+
+        /* ETAPA FINAL */
+        .completion-step {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .completion-icon {
+            font-size: 80px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .completion-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .completion-description {
+            color: var(--cinza-texto);
+            margin-bottom: 30px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barra de Progresso -->
+    <div class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+    </div>
+
+    <div class="onboarding-container">
+        
+        <!-- ETAPA 1: Dados Pessoais -->
+        <div class="step active" id="step-1">
+            <div class="onboarding-header">
+                <div class="logo">REPTECH</div>
+                <p class="subtitle">Vamos configurar seu perfil</p>
+            </div>
+
+            <h2 class="step-title">Seus Dados</h2>
+            <p class="step-description">Informações básicas para personalizar sua experiência</p>
+
+            <div class="form-group">
+                <label>Nome Completo</label>
+                <input type="text" id="input-nome" placeholder="Como quer ser chamado">
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label>Idade</label>
+                        <input type="number" id="input-idade" placeholder="Anos">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label>Sexo</label>
+                        <select id="input-sexo">
+                            <option value="">Selecione</option>
+                            <option value="masculino">Masculino</option>
+                            <option value="feminino">Feminino</option>
+                            <option value="outro">Outro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col">
+                    <div class="form-group">
+                        <label>Peso (kg)</label>
+                        <input type="number" id="input-peso" step="0.1" placeholder="Ex: 75.5">
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="form-group">
+                        <label>Altura (cm)</label>
+                        <input type="number" id="input-altura" placeholder="Ex: 175">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" style="visibility: hidden;">Voltar</button>
+                <button class="btn btn-primary" onclick="nextStep(2)">Continuar</button>
+            </div>
+        </div>
+
+        <!-- ETAPA 2: Objetivos -->
+        <div class="step" id="step-2">
+            <div class="onboarding-header">
+                <div class="logo">REPTECH</div>
+                <p class="subtitle">Defina seu objetivo principal</p>
+            </div>
+
+            <h2 class="step-title">Seu Objetivo</h2>
+            <p class="step-description">Escolha o que mais combina com seus planos</p>
+
+            <div class="objetivos-grid">
+                <div class="objetivo-card" onclick="selectObjetivo('hipertrofia')">
+                    <span class="objetivo-icon">💪</span>
+                    <div class="objetivo-title">Hipertrofia</div>
+                    <div class="objetivo-desc">Ganho de massa muscular e definição</div>
+                </div>
+
+                <div class="objetivo-card" onclick="selectObjetivo('emagrecimento')">
+                    <span class="objetivo-icon">🔥</span>
+                    <div class="objetivo-title">Emagrecimento</div>
+                    <div class="objetivo-desc">Perda de gordura e definição corporal</div>
+                </div>
+
+                <div class="objetivo-card" onclick="selectObjetivo('condicionamento')">
+                    <span class="objetivo-icon">⚡</span>
+                    <div class="objetivo-title">Condicionamento</div>
+                    <div class="objetivo-desc">Melhora da resistência e saúde geral</div>
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="prevStep(1)">Voltar</button>
+                <button class="btn btn-primary" id="btn-continuar-2" disabled onclick="nextStep(3)">Continuar</button>
+            </div>
+        </div>
+
+        <!-- ETAPA 3: Confirmação -->
+        <div class="step" id="step-3">
+            <div class="completion-step">
+                <span class="completion-icon">🎉</span>
+                <h2 class="completion-title">Tudo Pronto!</h2>
+                <p class="completion-description">
+                    Seu perfil foi configurado com sucesso.<br>
+                    Agora você pode começar a usar todas as funcionalidades do REPTECH.
+                </p>
+
+                <div class="btn-container">
+                    <button class="btn btn-secondary" onclick="prevStep(2)">Voltar</button>
+                    <button class="btn btn-primary" onclick="completeOnboarding()">Começar a Usar</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+            measurementId: "G-9Q9J9WRBMZ"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentStep = 1;
+        let selectedObjetivo = null;
+        const totalSteps = 3;
+
+        // Verificar se é o primeiro acesso
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                checkFirstAccess(user.uid);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function checkFirstAccess(uid) {
+            db.ref(`usuarios/${uid}/perfil`).once('value').then(snapshot => {
+                const perfil = snapshot.val();
+                // Se já tem perfil completo, vai direto para o dashboard
+                if (perfil && perfil.nome && perfil.objetivo) {
+                    window.location.href = "dashboard.html";
+                }
+                // Se não tem perfil ou está incompleto, fica no onboarding
+            });
+        }
+
+        function updateProgressBar() {
+            const progress = (currentStep / totalSteps) * 100;
+            document.getElementById('progress-bar').style.width = `${progress}%`;
+        }
+
+        function nextStep(next) {
+            // Validações da etapa atual
+            if (currentStep === 1) {
+                const nome = document.getElementById('input-nome').value;
+                const idade = document.getElementById('input-idade').value;
+                const sexo = document.getElementById('input-sexo').value;
+                const peso = document.getElementById('input-peso').value;
+                const altura = document.getElementById('input-altura').value;
+
+                if (!nome || !idade || !sexo || !peso || !altura) {
+                    alert("Por favor, preencha todos os campos.");
+                    return;
+                }
+            }
+
+            if (currentStep === 2 && !selectedObjetivo) {
+                alert("Por favor, selecione um objetivo.");
+                return;
+            }
+
+            // Mudar para próxima etapa
+            document.getElementById(`step-${currentStep}`).classList.remove('active');
+            currentStep = next;
+            document.getElementById(`step-${currentStep}`).classList.add('active');
+            updateProgressBar();
+        }
+
+        function prevStep(prev) {
+            document.getElementById(`step-${currentStep}`).classList.remove('active');
+            currentStep = prev;
+            document.getElementById(`step-${currentStep}`).classList.add('active');
+            updateProgressBar();
+        }
+
+        function selectObjetivo(objetivo) {
+            selectedObjetivo = objetivo;
+            
+            // Remover seleção anterior
+            document.querySelectorAll('.objetivo-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Adicionar seleção atual
+            event.currentTarget.classList.add('selected');
+            
+            // Habilitar botão continuar
+            document.getElementById('btn-continuar-2').disabled = false;
+        }
+
+        function completeOnboarding() {
+            const user = auth.currentUser;
+            if (!user) return;
+
+            const perfilData = {
+                nome: document.getElementById('input-nome').value,
+                idade: document.getElementById('input-idade').value,
+                sexo: document.getElementById('input-sexo').value,
+                peso: document.getElementById('input-peso').value,
+                altura: document.getElementById('input-altura').value,
+                objetivo: selectedObjetivo,
+                onboardingCompleto: true,
+                dataCriacao: new Date().toISOString()
+            };
+
+            // Salvar no Firebase
+            db.ref(`usuarios/${user.uid}/perfil`).set(perfilData)
+                .then(() => {
+                    // Registrar peso inicial no progresso também
+                    const pesoInicial = parseFloat(perfilData.peso);
+                    if (pesoInicial) {
+                        db.ref(`usuarios/${user.uid}/progresso`).push({
+                            peso: pesoInicial,
+                            data: new Date().toISOString().split('T')[0],
+                            timestamp: new Date().getTime(),
+                            observacao: "Peso inicial"
+                        });
+                    }
+
+                    // Redirecionar para dashboard
+                    window.location.href = "dashboard.html";
+                })
+                .catch(error => {
+                    alert("Erro ao salvar perfil: " + error.message);
+                });
+        }
+
+        // Inicializar barra de progresso
+        updateProgressBar();
+    </script>
+</body>
+</html>
