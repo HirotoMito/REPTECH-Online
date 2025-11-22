@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estatísticas - REPTECH</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- VISUAL DARK PRO --- */
+        :root { --bg-color: #000000; --card-bg: #111111; --accent-blue: #007AFF; --text-gray: #8E8E93; --border-color: #2C2C2E; }
+        body { background-color: var(--bg-color); color: white; font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 20px; padding-bottom: 80px; }
+
+        header { display: flex; align-items: center; margin-bottom: 20px; }
+        .btn-back { background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 15px; }
+        h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: 0.5px; }
+
+        /* FILTROS DE TEMPO */
+        .filter-container { display: flex; background: var(--card-bg); padding: 4px; border-radius: 10px; margin-bottom: 25px; border: 1px solid var(--border-color); }
+        .filter-btn { flex: 1; background: transparent; border: none; color: var(--text-gray); padding: 8px; font-weight: 600; font-size: 13px; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+        .filter-btn.active { background: #2c2c2e; color: white; }
+
+        /* ÁREA DO GRÁFICO */
+        .chart-wrapper { position: relative; height: 300px; margin-bottom: 30px; display: flex; justify-content: center; align-items: center; }
+        .chart-title { text-align: center; font-size: 14px; color: var(--text-gray); margin-bottom: 10px; }
+
+        /* GRID DE RESUMO */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .stat-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); display: flex; flex-direction: column; justify-content: center; }
+        .stat-label { color: var(--text-gray); font-size: 12px; margin-bottom: 5px; }
+        .stat-number { font-size: 22px; font-weight: 700; color: white; }
+        .stat-sub { font-size: 10px; color: #555; margin-top: 3px; }
+
+        /* LOADING */
+        .loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 99; display: flex; justify-content: center; align-items: center; color: var(--accent-blue); font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loading">Carregando dados...</div>
+
+    <header>
+        <button class="btn-back" onclick="window.location.href='dashboard.html'">❮</button>
+        <h1>Estatísticas</h1>
+    </header>
+
+    <div class="filter-container">
+        <button class="filter-btn active" onclick="setFilter(30, this)">30 Dias</button>
+        <button class="filter-btn" onclick="setFilter(90, this)">3 Meses</button>
+        <button class="filter-btn" onclick="setFilter(3650, this)">Geral</button>
+    </div>
+
+    <div class="chart-title">Distribuição Muscular</div>
+    
+    <div class="chart-wrapper">
+        <canvas id="muscleChart"></canvas>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box">
+            <span class="stat-label">Treinamentos</span>
+            <span class="stat-number" id="val-workouts">0</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Duração (Est.)</span>
+            <span class="stat-number" id="val-duration">0h</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Volume Total</span>
+            <span class="stat-number" id="val-volume">0 kg</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Séries Totais</span>
+            <span class="stat-number" id="val-sets">0</span>
+        </div>
+    </div>
+
+    <script>
+        // --- API KEY ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+            measurementId: "G-9Q9J9WRBMZ"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let allHistoryData = [];
+        let myRadarChart = null;
+
+        // PALAVRAS-CHAVE PARA CATEGORIZAR O GRÁFICO
+        const muscleKeywords = {
+            "Peito": ["Supino", "Crucifixo", "Voador", "Peck", "Crossover", "Flexão", "Mergulho"],
+            "Costas": ["Puxada", "Remada", "Barra", "Pulley", "Serrote", "Pullover"],
+            "Pernas": ["Agachamento", "Leg", "Extensora", "Flexora", "Stiff", "Afundo", "Panturrilha", "Smith"],
+            "Ombros": ["Desenvolvimento", "Elevação", "Encolhimento", "Remada Alta"],
+            "Braços": ["Rosca", "Tríceps", "Bíceps", "Testa", "Coice"],
+            "Core": ["Abdominal", "Prancha", "Crunch", "Twist"]
+        };
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                fetchData(user.uid);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function fetchData(uid) {
+            db.ref(`usuarios/${uid}/historico`).once('value').then(snapshot => {
+                document.getElementById('loading').style.display = 'none';
+                const data = snapshot.val();
+                if(data) {
+                    allHistoryData = Object.values(data);
+                    // Padrão: Últimos 30 dias
+                    processData(30);
+                } else {
+                    updateUI(0,0,0,0, [0,0,0,0,0,0]);
+                }
+            });
+        }
+
+        function setFilter(days, btnElement) {
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+            processData(days);
+        }
+
+        function processData(daysFilter) {
+            const now = new Date();
+            const cutoffDate = new Date();
+            cutoffDate.setDate(now.getDate() - daysFilter);
+
+            let totalSets = 0;
+            let totalVolume = 0;
+            const uniqueSessions = new Set();
+            
+            // Ordem do gráfico: [Peito, Costas, Pernas, Ombros, Braços, Core]
+            const muscleCounts = { "Peito":0, "Costas":0, "Pernas":0, "Ombros":0, "Braços":0, "Core":0 };
+
+            allHistoryData.forEach(record => {
+                const recordDate = new Date(record.data);
+                
+                if(recordDate >= cutoffDate) {
+                    totalSets++;
+                    
+                    // Volume = Carga * Reps
+                    const kg = parseFloat(record.carga || 0);
+                    const reps = parseFloat(record.repeticoes || 0);
+                    totalVolume += (kg * reps);
+                    
+                    // Treinos Únicos (Sessões)
+                    const sessionKey = record.sessaoId || recordDate.toLocaleDateString();
+                    uniqueSessions.add(sessionKey);
+
+                    // Classifica o músculo
+                    const exName = record.exercicio || "";
+                    let found = false;
+                    for (const [group, keywords] of Object.entries(muscleKeywords)) {
+                        if (keywords.some(k => exName.includes(k))) {
+                            muscleCounts[group]++;
+                            found = true;
+                            break;
+                        }
+                    }
+                    // Se não achou, pode ser "Outros" (não vamos plotar para manter o hexágono limpo)
+                }
+            });
+
+            // Estimativa de Duração: Média de 3 min por série (descanso + execução)
+            // Futuramente podemos cronometrar de verdade
+            const totalMinutes = totalSets * 3; 
+            const hours = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            const durationStr = `${hours}h ${mins}min`;
+
+            // Formata Volume (1000kg -> 1k)
+            const volumeStr = (totalVolume >= 1000) ? (totalVolume/1000).toFixed(1) + 'k kg' : totalVolume + ' kg';
+
+            updateUI(uniqueSessions.size, durationStr, volumeStr, totalSets, Object.values(muscleCounts));
+        }
+
+        function updateUI(workouts, duration, volume, sets, muscleData) {
+            document.getElementById('val-workouts').innerText = workouts;
+            document.getElementById('val-duration').innerText = duration;
+            document.getElementById('val-volume').innerText = volume;
+            document.getElementById('val-sets').innerText = sets;
+
+            renderRadarChart(muscleData);
+        }
+
+        function renderRadarChart(dataValues) {
+            const ctx = document.getElementById('muscleChart').getContext('2d');
+            
+            if(myRadarChart) myRadarChart.destroy();
+
+            // Configuração Visual "Cyberpunk" do Gráfico
+            myRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'],
+                    datasets: [{
+                        label: 'Séries',
+                        data: dataValues,
+                        backgroundColor: 'rgba(0, 122, 255, 0.2)', // Azul transparente
+                        borderColor: '#007AFF', // Azul Neon
+                        pointBackgroundColor: '#007AFF',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: '#007AFF',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false } // Esconde legenda para ficar clean
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: '#333' }, // Linhas do raio escuras
+                            grid: { color: '#333' }, // Teia escura
+                            pointLabels: {
+                                color: '#aaa', // Cor do texto (Costas, Peito...)
+                                font: { size: 11, weight: '600' }
+                            },
+                            ticks: { display: false, backdropColor: 'transparent' }, // Esconde números da escala
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
