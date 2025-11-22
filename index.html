@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Login</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+
+    <style>
+        :root { --bg-color: #000000; --card-bg: #1c1c1e; --accent-blue: #0A84FF; --text-color: #ffffff; }
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; font-family: -apple-system, sans-serif; flex-direction: column; }
+        
+        .login-card { background: var(--card-bg); padding: 30px; border-radius: 20px; width: 90%; max-width: 350px; text-align: center; border: 1px solid #333; }
+        h1 { margin-bottom: 5px; color: var(--accent-blue); }
+        p { color: #888; font-size: 14px; margin-bottom: 25px; }
+
+        input { width: 100%; padding: 15px; margin-bottom: 15px; background: #2c2c2e; border: 1px solid #333; border-radius: 10px; color: white; font-size: 16px; box-sizing: border-box; }
+        input:focus { outline: none; border-color: var(--accent-blue); }
+
+        .btn-primary { width: 100%; padding: 15px; background: var(--accent-blue); border: none; border-radius: 10px; color: white; font-weight: bold; font-size: 16px; cursor: pointer; margin-bottom: 10px; }
+        .btn-secondary { background: transparent; color: var(--accent-blue); border: none; cursor: pointer; font-size: 14px; text-decoration: underline; }
+        
+        .error-msg { color: #ff453a; font-size: 13px; margin-bottom: 15px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h1>REPTECH</h1>
+        <p>Acesse seus treinos</p>
+
+        <div id="error-box" class="error-msg"></div>
+
+        <input type="email" id="email" placeholder="E-mail">
+        <input type="password" id="password" placeholder="Senha">
+
+        <button class="btn-primary" onclick="login()">ENTRAR</button>
+        <button class="btn-secondary" onclick="register()">Não tem conta? Criar agora</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+  apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+  authDomain: "reptech-mvp.firebaseapp.com",
+  databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+  projectId: "reptech-mvp",
+  storageBucket: "reptech-mvp.firebasestorage.app",
+  messagingSenderId: "350784354776",
+  appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+  measurementId: "G-9Q9J9WRBMZ"
+};
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+
+        // Verifica se já está logado
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                window.location.href = "dashboard.html";
+            }
+        });
+
+        // No arquivo index.html, modifique a função de login/registro:
+// NO index.html, SUBSTITUA as funções login() e register() por estas:
+
+function login() {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+    
+    auth.signInWithEmailAndPassword(email, pass)
+        .then((userCredential) => {
+            checkOnboardingStatus(userCredential.user);
+        })
+        .catch(error => showError(error));
+}
+
+function register() {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+
+    if(pass.length < 6) {
+        showError({message: "A senha deve ter pelo menos 6 caracteres."});
+        return;
+    }
+
+    auth.createUserWithEmailAndPassword(email, pass)
+        .then((userCredential) => {
+            checkOnboardingStatus(userCredential.user);
+        })
+        .catch(error => showError(error));
+}
+
+// ADICIONE esta nova função no index.html:
+function checkOnboardingStatus(user) {
+    const db = firebase.database();
+    db.ref('usuarios/' + user.uid + '/perfil').once('value').then(snapshot => {
+        const perfil = snapshot.val();
+        // Se o perfil existe E tem onboarding completo, vai para dashboard
+        if (perfil && perfil.onboardingCompleto) {
+            window.location.href = "dashboard.html";
+        } else {
+            // Se não tem perfil ou onboarding não completo, vai para onboarding
+            window.location.href = "onboarding.html";
+        }
+    }).catch((error) => {
+        // Em caso de erro, vai para onboarding por segurança
+        console.error("Erro ao verificar onboarding:", error);
+        window.location.href = "onboarding.html";
+    });
+}
+// Nova função para verificar onboarding
+function checkOnboardingStatus(user) {
+    const db = firebase.database();
+    db.ref('usuarios/' + user.uid + '/perfil').once('value').then(snapshot => {
+        const perfil = snapshot.val();
+        if (perfil && perfil.onboardingCompleto) {
+            window.location.href = "dashboard.html";
+        } else {
+            window.location.href = "onboarding.html";
+        }
+    }).catch(() => {
+        // Em caso de erro, vai para onboarding
+        window.location.href = "onboarding.html";
+    });
+}
+
+        function showError(error) {
+            const el = document.getElementById('error-box');
+            el.style.display = 'block';
+            // Tradução simples de erros comuns
+            let msg = error.message;
+            if(error.code === 'auth/wrong-password') msg = "Senha incorreta.";
+            if(error.code === 'auth/user-not-found') msg = "Usuário não encontrado.";
+            if(error.code === 'auth/email-already-in-use') msg = "Este e-mail já está cadastrado.";
+            el.innerText = msg;
+        }
+    </script>
+</body>
+</html>
