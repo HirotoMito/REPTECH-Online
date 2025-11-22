@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Meu Progresso</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- VISUAL DARK (Mesmo padrão do REPTECH) --- */
+        :root { 
+            --bg-color: #0B0D0F;
+            --card-bg: #2A2E35;
+            --accent-blue: #0D3B66;
+            --verde-energia: #1FBF77;
+            --cinza-gelo: #E5E7EB;
+            --cinza-texto: #9CA3AF;
+            --border-color: rgba(255,255,255,0.05);
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--cinza-gelo); 
+            font-family: 'Nunito Sans', sans-serif;
+            padding: 20px; 
+            margin: 0; 
+        }
+
+        /* HEADER */
+        .header { display: flex; align-items: center; margin-bottom: 25px; }
+        .btn-back { background: transparent; border: none; color: var(--cinza-gelo); font-size: 24px; cursor: pointer; margin-right: 15px; }
+        h1 { font-size: 24px; font-weight: 800; margin: 0; }
+
+        /* FILTROS DE TEMPO */
+        .filter-container { 
+            display: flex; 
+            overflow-x: auto;
+            gap: 8px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+        }
+        
+        .filter-btn { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border-color);
+            color: var(--cinza-texto); 
+            padding: 8px 15px;
+            border-radius: 20px; 
+            font-weight: 700; 
+            font-size: 12px; 
+            cursor: pointer; 
+            white-space: nowrap;
+        }
+        
+        .filter-btn.active { 
+            background: var(--accent-blue); 
+            color: white; 
+            border-color: var(--accent-blue);
+        }
+
+        /* GRÁFICO */
+        .chart-container { 
+            background: var(--card-bg); 
+            border-radius: 16px; 
+            padding: 20px; 
+            border: 1px solid var(--border-color); 
+            margin-bottom: 20px;
+            height: 250px;
+        }
+
+        /* BOTÃO ADICIONAR */
+        .btn-add { 
+            width: 100%; 
+            padding: 15px; 
+            background: var(--verde-energia); 
+            border: none; 
+            border-radius: 12px; 
+            color: #000; 
+            font-weight: 700; 
+            font-size: 16px; 
+            cursor: pointer; 
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* LISTA DE REGISTROS */
+        .registros-title { 
+            font-size: 16px; 
+            font-weight: 800; 
+            margin-bottom: 15px; 
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .registros-title::before {
+            content: '';
+            width: 4px;
+            height: 18px;
+            background-color: var(--verde-energia);
+            border-radius: 2px;
+            display: block;
+        }
+
+        .registro-item { 
+            background: var(--card-bg); 
+            border: 1px solid var(--border-color); 
+            border-radius: 12px; 
+            padding: 15px; 
+            margin-bottom: 10px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        
+        .registro-data { font-size: 14px; color: var(--cinza-texto); }
+        .registro-peso { font-size: 18px; font-weight: 700; color: var(--cinza-gelo); }
+
+        .empty-state { 
+            text-align: center; 
+            color: var(--cinza-texto); 
+            padding: 40px 20px; 
+            border: 1px dashed var(--border-color);
+            border-radius: 12px;
+        }
+
+        /* MODAL */
+        .modal-overlay { 
+            position: fixed; 
+            top: 0; left: 0; 
+            width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.8); 
+            z-index: 1000; 
+            display: none; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        
+        .modal-card { 
+            background: var(--card-bg); 
+            width: 90%; 
+            max-width: 400px; 
+            padding: 25px; 
+            border-radius: 20px; 
+            border: 1px solid var(--border-color);
+        }
+        
+        .modal-title { 
+            font-size: 20px; 
+            font-weight: 700; 
+            margin-bottom: 20px; 
+            text-align: center;
+        }
+        
+        .input-group { margin-bottom: 20px; }
+        
+        label { 
+            display: block; 
+            color: var(--cinza-texto); 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+        }
+        
+        input { 
+            width: 100%; 
+            background: rgba(255,255,255,0.05); 
+            border: 1px solid var(--border-color); 
+            padding: 15px; 
+            border-radius: 10px; 
+            color: var(--cinza-gelo); 
+            font-size: 16px; 
+            box-sizing: border-box;
+        }
+        
+        .modal-actions { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 25px;
+        }
+        
+        .btn-save { 
+            flex: 2; 
+            padding: 15px; 
+            background: var(--verde-energia); 
+            border: none; 
+            border-radius: 10px; 
+            color: #000; 
+            font-weight: 700; 
+            cursor: pointer;
+        }
+        
+        .btn-cancel { 
+            flex: 1; 
+            padding: 15px; 
+            background: transparent; 
+            border: 1px solid var(--border-color); 
+            border-radius: 10px; 
+            color: var(--cinza-texto); 
+            font-weight: 700; 
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="btn-back" onclick="window.location.href='dashboard.html'">❮</button>
+        <h1>Meu Progresso</h1>
+    </div>
+
+    <div class="filter-container">
+        <button class="filter-btn active" onclick="setFilter(7)">1 Semana</button>
+        <button class="filter-btn" onclick="setFilter(30)">1 Mês</button>
+        <button class="filter-btn" onclick="setFilter(60)">2 Meses</button>
+        <button class="filter-btn" onclick="setFilter(90)">3 Meses</button>
+        <button class="filter-btn" onclick="setFilter(180)">6 Meses</button>
+        <button class="filter-btn" onclick="setFilter(365)">1 Ano</button>
+        <button class="filter-btn" onclick="setFilter(0)">Desde o Início</button>
+    </div>
+
+    <div class="chart-container">
+        <canvas id="progressChart"></canvas>
+    </div>
+
+    <button class="btn-add" onclick="openAddModal()">
+        <span>+</span> Adicionar Peso
+    </button>
+
+    <div class="registros-title">Registros</div>
+    <div id="registros-list">
+        <div class="empty-state">
+            <span style="font-size:40px; display:block; margin-bottom:10px;">⚖️</span>
+            Nenhum registro de peso ainda.<br>Adicione seu primeiro registro!
+        </div>
+    </div>
+
+    <!-- Modal para adicionar peso -->
+    <div class="modal-overlay" id="modal-add">
+        <div class="modal-card">
+            <div class="modal-title">Registrar Peso</div>
+            
+            <div class="input-group">
+                <label>Peso (kg)</label>
+                <input type="number" id="input-peso" step="0.1" min="0" placeholder="Ex: 75.5">
+            </div>
+            
+            <div class="input-group">
+                <label>Data</label>
+                <input type="date" id="input-data">
+            </div>
+            
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+                <button class="btn-save" onclick="saveWeight()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+            measurementId: "G-9Q9J9WRBMZ"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let progressChart = null;
+        let currentFilter = 7; // 7 dias por padrão
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                loadProgressData();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function setFilter(days) {
+            // Atualizar botões ativos
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            currentFilter = days;
+            loadProgressData();
+        }
+
+        function loadProgressData() {
+            const progressRef = db.ref(`usuarios/${currentUser.uid}/progresso`);
+            
+            progressRef.once('value').then(snapshot => {
+                const data = snapshot.val();
+                const registrosList = document.getElementById('registros-list');
+                
+                if (!data) {
+                    // Sem dados
+                    registrosList.innerHTML = `
+                        <div class="empty-state">
+                            <span style="font-size:40px; display:block; margin-bottom:10px;">⚖️</span>
+                            Nenhum registro de peso ainda.<br>Adicione seu primeiro registro!
+                        </div>`;
+                    
+                    // Gráfico vazio
+                    renderChart([], []);
+                    return;
+                }
+
+                // Converter para array e ordenar por data (mais recente primeiro)
+                const allRegistros = Object.entries(data).map(([id, registro]) => ({
+                    id,
+                    ...registro,
+                    timestamp: new Date(registro.data).getTime()
+                })).sort((a, b) => b.timestamp - a.timestamp);
+
+                // Aplicar filtro de tempo
+                const now = new Date();
+                const filteredRegistros = currentFilter === 0 ? 
+                    allRegistros : 
+                    allRegistros.filter(reg => {
+                        const regDate = new Date(reg.data);
+                        const diffTime = Math.abs(now - regDate);
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        return diffDays <= currentFilter;
+                    });
+
+                // Renderizar lista de registros
+                renderRegistrosList(filteredRegistros);
+
+                // Preparar dados para o gráfico (ordenar por data crescente)
+                const chartData = [...filteredRegistros]
+                    .sort((a, b) => a.timestamp - b.timestamp)
+                    .map(reg => ({
+                        label: new Date(reg.data).toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'}),
+                        peso: parseFloat(reg.peso)
+                    }));
+
+                // Renderizar gráfico
+                renderChart(
+                    chartData.map(d => d.label),
+                    chartData.map(d => d.peso)
+                );
+            });
+        }
+
+        function renderRegistrosList(registros) {
+            const container = document.getElementById('registros-list');
+            
+            if (registros.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <span style="font-size:40px; display:block; margin-bottom:10px;">📅</span>
+                        Nenhum registro neste período.
+                    </div>`;
+                return;
+            }
+
+            let html = '';
+            registros.forEach(reg => {
+                const dataObj = new Date(reg.data);
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                });
+                
+                html += `
+                    <div class="registro-item">
+                        <div class="registro-data">${dataFormatada}</div>
+                        <div class="registro-peso">${reg.peso} kg</div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function renderChart(labels, data) {
+            const ctx = document.getElementById('progressChart').getContext('2d');
+            
+            if (progressChart) {
+                progressChart.destroy();
+            }
+
+            progressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Peso (kg)',
+                        data: data,
+                        borderColor: '#1FBF77',
+                        backgroundColor: 'rgba(31, 191, 119, 0.1)',
+                        borderWidth: 3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#1FBF77',
+                        pointBorderColor: '#0B0D0F',
+                        pointBorderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            grid: {
+                                color: 'rgba(255,255,255,0.1)'
+                            },
+                            ticks: {
+                                color: '#9CA3AF'
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#9CA3AF'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function openAddModal() {
+            document.getElementById('modal-add').style.display = 'flex';
+            document.getElementById('input-data').value = new Date().toISOString().split('T')[0];
+            document.getElementById('input-peso').value = '';
+            document.getElementById('input-peso').focus();
+        }
+
+        function closeModal() {
+            document.getElementById('modal-add').style.display = 'none';
+        }
+
+        function saveWeight() {
+            const peso = parseFloat(document.getElementById('input-peso').value);
+            const data = document.getElementById('input-data').value;
+
+            if (!peso || peso <= 0) {
+                alert("Por favor, insira um peso válido.");
+                return;
+            }
+
+            if (!data) {
+                alert("Por favor, selecione uma data.");
+                return;
+            }
+
+            const progressRef = db.ref(`usuarios/${currentUser.uid}/progresso`);
+            
+            progressRef.push({
+                peso: peso,
+                data: data,
+                timestamp: new Date().getTime()
+            }).then(() => {
+                closeModal();
+                loadProgressData(); // Recarregar dados
+            }).catch(error => {
+                alert("Erro ao salvar: " + error.message);
+            });
+        }
+    </script>
+</body>
+</html>
