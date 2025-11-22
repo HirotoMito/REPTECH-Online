@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Estatísticas</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root { --bg-color: #000000; --card-bg: #111111; --accent-blue: #007AFF; --accent-green: #30D158; --text-gray: #8E8E93; --border-color: #2C2C2E; }
+        body { background-color: var(--bg-color); color: white; font-family: -apple-system, sans-serif; margin: 0; padding: 20px; padding-bottom: 80px; }
+
+        header { display: flex; align-items: center; margin-bottom: 20px; }
+        .btn-back { background: transparent; border: none; color: white; font-size: 24px; cursor: pointer; margin-right: 15px; }
+        h1 { font-size: 22px; font-weight: 800; margin: 0; }
+
+        /* FILTROS DE TEMPO */
+        .filter-container { display: flex; background: var(--card-bg); padding: 5px; border-radius: 10px; margin-bottom: 25px; border: 1px solid var(--border-color); }
+        .filter-btn { flex: 1; background: transparent; border: none; color: var(--text-gray); padding: 10px; font-weight: 600; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+        .filter-btn.active { background: var(--accent-blue); color: white; }
+
+        /* GRÁFICO HEXAGONAL */
+        .chart-wrapper { background: var(--card-bg); border-radius: 15px; padding: 15px; border: 1px solid var(--border-color); margin-bottom: 20px; height: 320px; display: flex; align-items: center; justify-content: center; }
+
+        /* CAIXAS DE DADOS (GRID) */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .stat-box { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); text-align: center; }
+        .stat-number { font-size: 24px; font-weight: 800; color: white; display: block; margin-bottom: 5px; }
+        .stat-label { color: var(--text-gray); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* LOADING */
+        .loading { text-align: center; margin-top: 50px; color: var(--accent-blue); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <button class="btn-back" onclick="window.location.href='dashboard.html'">❮</button>
+        <h1>Estatísticas</h1>
+    </header>
+
+    <div class="filter-container">
+        <button class="filter-btn" onclick="setFilter(30, this)">30 Dias</button>
+        <button class="filter-btn" onclick="setFilter(90, this)">3 Meses</button>
+        <button class="filter-btn active" onclick="setFilter(3650, this)">Geral</button>
+    </div>
+
+    <div class="chart-wrapper">
+        <canvas id="muscleChart"></canvas>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-box">
+            <span class="stat-number" id="val-workouts">0</span>
+            <span class="stat-label">Treinos</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-number" id="val-volume">0k</span>
+            <span class="stat-label">Volume (Kg)</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-number" id="val-sets">0</span>
+            <span class="stat-label">Séries</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-number" id="val-reps">0</span>
+            <span class="stat-label">Repetições</span>
+        </div>
+    </div>
+
+    <script>
+        // --- API KEY ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad",
+            measurementId: "G-9Q9J9WRBMZ"
+        };
+        
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let allHistoryData = [];
+        let myRadarChart = null;
+
+        // --- MAPA DE EXERCÍCIOS PARA GRUPOS (Simples) ---
+        // O código vai procurar palavras-chave no nome do exercício
+        const muscleKeywords = {
+            "Peitoral": ["Supino", "Crucifixo", "Voador", "Peck", "Crossover", "Flexão", "Mergulho"],
+            "Costas": ["Puxada", "Remada", "Barra Fixa", "Pulley", "Serrote", "Pullover"],
+            "Pernas": ["Agachamento", "Leg Press", "Extensora", "Flexora", "Stiff", "Afundo", "Panturrilha"],
+            "Ombros": ["Desenvolvimento", "Elevação", "Encolhimento"],
+            "Braços": ["Rosca", "Tríceps", "Bíceps", "Testa", "Coice"],
+            "Core": ["Abdominal", "Prancha", "Crunch", "Twist"]
+        };
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                fetchData(user.uid);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function fetchData(uid) {
+            db.ref(`usuarios/${uid}/historico`).once('value').then(snapshot => {
+                const data = snapshot.val();
+                if(data) {
+                    allHistoryData = Object.values(data);
+                    // Começa mostrando "Geral" (3650 dias)
+                    processData(3650);
+                } else {
+                    updateUI(0,0,0,0, [0,0,0,0,0,0]);
+                }
+            });
+        }
+
+        function setFilter(days, btnElement) {
+            // Atualiza visual dos botões
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+            
+            processData(days);
+        }
+
+        function processData(daysFilter) {
+            const now = new Date();
+            const cutoffDate = new Date();
+            cutoffDate.setDate(now.getDate() - daysFilter);
+
+            let totalSets = 0;
+            let totalVolume = 0;
+            let totalReps = 0;
+            const uniqueSessions = new Set(); // Para contar treinos únicos
+            
+            // Contadores por músculo: [Peito, Costas, Pernas, Ombros, Braços, Core]
+            const muscleCounts = { "Peitoral":0, "Costas":0, "Pernas":0, "Ombros":0, "Braços":0, "Core":0 };
+
+            allHistoryData.forEach(record => {
+                const recordDate = new Date(record.data);
+                
+                // Filtro de Data
+                if(recordDate >= cutoffDate) {
+                    // Métricas Gerais
+                    totalSets++;
+                    totalReps += parseFloat(record.repeticoes || 0);
+                    totalVolume += (parseFloat(record.carga || 0) * parseFloat(record.repeticoes || 0));
+                    
+                    // Identifica Sessão Única (pelo ID ou Data)
+                    const sessionKey = record.sessaoId || recordDate.toLocaleDateString();
+                    uniqueSessions.add(sessionKey);
+
+                    // Identifica Grupo Muscular
+                    const exName = record.exercicio || "";
+                    let foundGroup = false;
+                    
+                    for (const [group, keywords] of Object.entries(muscleKeywords)) {
+                        if (keywords.some(k => exName.includes(k))) {
+                            muscleCounts[group]++;
+                            foundGroup = true;
+                            break;
+                        }
+                    }
+                    // Se não achou (ex: nome personalizado), pode categorizar como "Outros" ou ignorar no gráfico
+                }
+            });
+
+            // Atualiza Gráfico e Números
+            updateUI(uniqueSessions.size, totalVolume, totalSets, totalReps, Object.values(muscleCounts));
+        }
+
+        function updateUI(workouts, vol, sets, reps, muscleData) {
+            // Animação simples dos números
+            document.getElementById('val-workouts').innerText = workouts;
+            document.getElementById('val-volume').innerText = (vol >= 1000) ? (vol/1000).toFixed(1) + 'k' : vol;
+            document.getElementById('val-sets').innerText = sets;
+            document.getElementById('val-reps').innerText = reps;
+
+            renderRadarChart(muscleData);
+        }
+
+        function renderRadarChart(dataValues) {
+            const ctx = document.getElementById('muscleChart').getContext('2d');
+            
+            if(myRadarChart) myRadarChart.destroy();
+
+            myRadarChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['Peitoral', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'],
+                    datasets: [{
+                        label: 'Séries Realizadas',
+                        data: dataValues,
+                        backgroundColor: 'rgba(0, 122, 255, 0.5)', // Azul Transparente
+                        borderColor: '#007AFF',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#007AFF'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: '#333' },
+                            grid: { color: '#333' },
+                            pointLabels: {
+                                color: '#eee',
+                                font: { size: 12, weight: 'bold' }
+                            },
+                            ticks: { display: false, backdropColor: 'transparent' } // Esconde números do eixo
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
