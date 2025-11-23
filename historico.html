@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Histórico</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* --- VISUAL DARK (Mesmo padrão do Treino Pro) --- */
+        :root { 
+            --bg-color: #000000; 
+            --card-bg: #111111; 
+            --accent-blue: #007AFF; 
+            --text-gray: #8E8E93;
+            --border-color: #2C2C2E;
+            --verde-energia: #1FBF77;
+            --success-green: #30D158;
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: white; 
+            font-family: -apple-system, sans-serif; 
+            padding: 20px; 
+            padding-bottom: 80px; 
+            margin: 0; 
+        }
+
+        /* HEADER */
+        .header { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 30px; 
+            border-bottom: 1px solid var(--border-color); 
+            padding-bottom: 15px; 
+        }
+        .btn-back { 
+            background: transparent; 
+            border: none; 
+            color: #888; 
+            font-size: 24px; 
+            cursor: pointer; 
+            padding-right: 15px; 
+        }
+        h1 { 
+            font-size: 22px; 
+            font-weight: 800; 
+            margin: 0; 
+            letter-spacing: 0.5px; 
+        }
+
+        /* CARD DE TREINO */
+        .treino-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            position: relative;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .treino-card:active {
+            transform: scale(0.98);
+            border-color: var(--accent-blue);
+        }
+
+        .treino-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .treino-info {
+            flex: 1;
+        }
+
+        .treino-data {
+            font-size: 12px;
+            color: var(--text-gray);
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .treino-nome {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 5px;
+        }
+
+        .treino-subtitulo {
+            font-size: 14px;
+            color: var(--text-gray);
+        }
+
+        .btn-options {
+            background: transparent;
+            border: none;
+            color: var(--text-gray);
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+            transform: rotate(90deg);
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+        }
+
+        .btn-options:active {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* ESTATÍSTICAS DO TREINO */
+        .treino-stats {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .stat-item {
+            text-align: center;
+            flex: 1;
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--text-gray);
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .stat-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .recordes-badge {
+            background: rgba(255, 215, 0, 0.2);
+            color: #FFD700;
+            border: 1px solid #FFD700;
+            border-radius: 12px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* EXERCÍCIOS RESUMO */
+        .exercicios-resumo {
+            border-top: 1px solid var(--border-color);
+            padding-top: 15px;
+        }
+
+        .exercicio-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .exercicio-item:last-child {
+            border-bottom: none;
+        }
+
+        .exercicio-nome {
+            font-size: 14px;
+            color: white;
+            flex: 1;
+        }
+
+        .exercicio-detalhes {
+            font-size: 12px;
+            color: var(--text-gray);
+            text-align: right;
+        }
+
+        .exercicio-carga {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        /* MODAIS */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-card {
+            background: var(--card-bg);
+            width: 90%;
+            max-width: 300px;
+            border-radius: 20px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+
+        @keyframes modalSlideIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .option-item {
+            padding: 18px 20px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .option-item:active {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .option-item:last-child {
+            border-bottom: none;
+        }
+
+        .option-icon {
+            font-size: 18px;
+            width: 24px;
+            text-align: center;
+        }
+
+        /* MODAL DE NOME DA ROTINA */
+        .input-modal {
+            padding: 20px;
+        }
+
+        .input-label {
+            font-size: 16px;
+            margin-bottom: 15px;
+            text-align: center;
+            color: white;
+        }
+
+        .routine-input {
+            width: 100%;
+            padding: 15px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+
+        .routine-input:focus {
+            border-color: var(--accent-blue);
+            outline: none;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .modal-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .modal-btn.primary {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        .modal-btn.secondary {
+            background: transparent;
+            color: var(--text-gray);
+            border: 1px solid var(--border-color);
+        }
+
+        /* TOAST DE SUCESSO */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--success-green);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-weight: 600;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: transform 0.3s ease;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ESTADOS VAZIOS */
+        .empty-state {
+            text-align: center;
+            color: var(--text-gray);
+            padding: 60px 20px;
+        }
+
+        .empty-icon {
+            font-size: 50px;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--accent-blue);
+            padding: 40px 20px;
+        }
+
+        .error-state {
+            text-align: center;
+            color: #FF453A;
+            padding: 40px 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="btn-back" onclick="window.location.href='dashboard.html'">❮</button>
+        <h1>Histórico de Treinos</h1>
+    </div>
+
+    <div id="history-feed">
+        <div class="loading">Carregando seus treinos...</div>
+    </div>
+
+    <!-- Modal de Opções -->
+    <div class="modal-overlay" id="modal-options">
+        <div class="modal-card">
+            <button class="option-item" onclick="editarTreino()">
+                <span class="option-icon">✏️</span>
+                Editar Treino
+            </button>
+            <button class="option-item" onclick="abrirModalSalvarRotina()">
+                <span class="option-icon">💾</span>
+                Salvar Como Rotina
+            </button>
+            <button class="option-item" onclick="copiarTreino()">
+                <span class="option-icon">📋</span>
+                Copiar Treino
+            </button>
+            <button class="option-item" onclick="fecharModal()" style="color: var(--text-gray);">
+                <span class="option-icon">✕</span>
+                Cancelar
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal para nome da rotina -->
+    <div class="modal-overlay" id="modal-rotina">
+        <div class="modal-card">
+            <div class="input-modal">
+                <div class="input-label">Nome da Rotina</div>
+                <input type="text" id="nome-rotina-input" class="routine-input" placeholder="Ex: Treino Superior A" maxlength="30">
+                <div class="modal-actions">
+                    <button class="modal-btn secondary" onclick="fecharModalRotina()">Cancelar</button>
+                    <button class="modal-btn primary" onclick="salvarComoRotina()">Salvar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast de sucesso -->
+    <div class="toast" id="toast-success">
+        <span class="option-icon">✅</span>
+        <span id="toast-message">Rotina salva com sucesso!</span>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        let currentUser = null;
+        let treinosAgrupados = [];
+        let currentTreinoId = null;
+        let currentTreinoData = null;
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                loadHistory(user.uid);
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        function loadHistory(uid) {
+            console.log("Carregando histórico para usuário:", uid);
+            
+            const historyRef = db.ref(`usuarios/${uid}/historico_completo`);
+            
+            historyRef.once('value').then(snapshot => {
+                const data = snapshot.val();
+                const feed = document.getElementById('history-feed');
+                
+                console.log("Dados do histórico completo:", data);
+                
+                if (!data) {
+                    feed.innerHTML = `
+                        <div class="empty-state">
+                            <span class="empty-icon">📉</span>
+                            Nenhum treino registrado ainda.<br>Bora treinar?
+                        </div>`;
+                    return;
+                }
+
+                try {
+                    // Processar treinos completos (novo formato)
+                    treinosAgrupados = Object.entries(data).map(([sessionId, treino]) => {
+                        const dataObj = new Date(treino.endTime);
+                        
+                        return {
+                            sessaoId: sessionId,
+                            data: treino.endTime,
+                            dataObj: dataObj,
+                            exercicios: treino.exercicios.reduce((acc, ex) => {
+                                acc[ex.name] = {
+                                    sets: ex.sets,
+                                    maquina: ex.machineId || "Manual",
+                                    maiorCarga: Math.max(...ex.sets.map(s => s.kg))
+                                };
+                                return acc;
+                            }, {}),
+                            recordes: treino.exercicios.length,
+                            volumeTotal: treino.totalVolume,
+                            tempoEstimado: calcularTempoEstimado(treino.duration),
+                            totalSets: treino.totalSets,
+                            dataFormatada: dataObj.toLocaleDateString('pt-BR', {
+                                weekday: 'long',
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }),
+                            dataCurta: dataObj.toLocaleDateString('pt-BR', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            }),
+                            nomeTreino: `Treino ${dataObj.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`,
+                            tempoFormatado: treino.duration,
+                            volumeFormatado: formatarVolume(treino.totalVolume),
+                            dadosCompletos: treino // ✅ Guardar dados completos para usar nas funções
+                        };
+                    }).sort((a, b) => b.dataObj - a.dataObj);
+
+                    console.log("Treinos processados:", treinosAgrupados);
+                    renderTreinos(treinosAgrupados);
+
+                } catch (error) {
+                    console.error("Erro ao processar histórico:", error);
+                    loadHistoryFallback(uid);
+                }
+            }).catch(error => {
+                console.error("Erro no Firebase:", error);
+                loadHistoryFallback(uid);
+            });
+        }
+
+        // ✅ FUNÇÃO MELHORADA: Salvar Como Rotina
+        function abrirModalSalvarRotina() {
+            if (currentTreinoId && currentUser) {
+                currentTreinoData = treinosAgrupados.find(t => t.sessaoId === currentTreinoId);
+                
+                if (currentTreinoData) {
+                    // Fechar modal de opções e abrir modal de nome
+                    fecharModal();
+                    document.getElementById('modal-rotina').style.display = 'flex';
+                    
+                    // Preencher sugestão de nome
+                    const nomeSugerido = `Treino ${currentTreinoData.dataCurta}`;
+                    document.getElementById('nome-rotina-input').value = nomeSugerido;
+                    document.getElementById('nome-rotina-input').focus();
+                }
+            }
+        }
+
+        function fecharModalRotina() {
+            document.getElementById('modal-rotina').style.display = 'none';
+            currentTreinoData = null;
+        }
+
+        async function salvarComoRotina() {
+            if (!currentTreinoData || !currentUser) {
+                mostrarToast("Erro ao salvar rotina", "error");
+                return;
+            }
+
+            const nomeRotina = document.getElementById('nome-rotina-input').value.trim();
+            
+            if (!nomeRotina) {
+                mostrarToast("Digite um nome para a rotina", "error");
+                return;
+            }
+
+            try {
+                // Verificar limite de rotinas (máximo 3)
+                const rotinasSnapshot = await db.ref(`usuarios/${currentUser.uid}/rotinas`).once('value');
+                const rotinasExistentes = rotinasSnapshot.val();
+                
+                if (rotinasExistentes && Object.keys(rotinasExistentes).length >= 3) {
+                    mostrarToast("Limite de 3 rotinas atingido", "error");
+                    fecharModalRotina();
+                    return;
+                }
+
+                // Converter treino em rotina
+                const exerciciosRotina = Object.entries(currentTreinoData.exercicios).map(([nome, dados]) => ({
+                    name: nome,
+                    machineId: dados.maquina || "Manual",
+                    restTime: 60 // Tempo padrão de descanso
+                }));
+
+                // Salvar rotina
+                await db.ref(`usuarios/${currentUser.uid}/rotinas`).push({
+                    nome: nomeRotina,
+                    exercicios: exerciciosRotina,
+                    criadoEm: new Date().toISOString(),
+                    origem: 'historico',
+                    sessaoOrigem: currentTreinoId
+                });
+
+                // Feedback de sucesso
+                mostrarToast("Rotina salva com sucesso! 💾");
+                fecharModalRotina();
+
+            } catch (error) {
+                console.error("Erro ao salvar rotina:", error);
+                mostrarToast("Erro ao salvar rotina", "error");
+            }
+        }
+
+        // ✅ FUNÇÃO: Editar Treino
+        function editarTreino() {
+            if (currentTreinoId) {
+                // Redirecionar para a página de treino com os dados para edição
+                window.location.href = `treino.html?editar=${currentTreinoId}`;
+            }
+            fecharModal();
+        }
+
+        // ✅ FUNÇÃO: Copiar Treino
+        function copiarTreino() {
+            if (currentTreinoId && currentUser) {
+                const treino = treinosAgrupados.find(t => t.sessaoId === currentTreinoId);
+                
+                if (treino) {
+                    // Criar nova sessão com os mesmos exercícios (sem os dados de séries)
+                    const novaSessaoId = Date.now();
+                    const exerciciosCopiados = Object.entries(treino.exercicios).map(([nome, dados]) => ({
+                        name: nome,
+                        machineId: dados.maquina || "Manual",
+                        restTime: 60
+                    }));
+
+                    // Podemos salvar como um novo treino em rascunho ou redirecionar direto
+                    window.location.href = `treino.html?copiar=${currentTreinoId}`;
+                }
+            }
+            fecharModal();
+        }
+
+        // ✅ FUNÇÃO: Mostrar Toast de feedback
+        function mostrarToast(mensagem, tipo = "success") {
+            const toast = document.getElementById('toast-success');
+            const toastMessage = document.getElementById('toast-message');
+            
+            toastMessage.textContent = mensagem;
+            
+            if (tipo === "error") {
+                toast.style.background = "#FF453A";
+            } else {
+                toast.style.background = "var(--success-green)";
+            }
+            
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 🔄 FUNÇÕES EXISTENTES (mantidas do código anterior)
+        function loadHistoryFallback(uid) {
+            // ... (código anterior mantido)
+        }
+
+        function renderTreinos(treinosArray) {
+            // ... (código anterior mantido)
+        }
+
+        function abrirOpcoes(sessaoId) {
+            currentTreinoId = sessaoId;
+            document.getElementById('modal-options').style.display = 'flex';
+        }
+
+        function fecharModal() {
+            document.getElementById('modal-options').style.display = 'none';
+            currentTreinoId = null;
+        }
+
+        function verRelatorio(sessaoId) {
+            window.location.href = `relatorio-treino.html?sessao=${encodeURIComponent(sessaoId)}`;
+        }
+
+        function formatarTempo(minutos) {
+            const horas = Math.floor(minutos / 60);
+            const mins = minutos % 60;
+            return horas > 0 ? `${horas}h ${mins}min` : `${mins}min`;
+        }
+
+        function formatarVolume(volume) {
+            return volume >= 1000 ? (volume/1000).toFixed(1) + 'k kg' : Math.round(volume) + ' kg';
+        }
+
+        function calcularTempoEstimado(duration) {
+            if (!duration) return 0;
+            const parts = duration.split(':');
+            if (parts.length === 3) {
+                const horas = parseInt(parts[0]);
+                const minutos = parseInt(parts[1]);
+                return horas * 60 + minutos;
+            }
+            return 0;
+        }
+
+        // Fechar modais ao clicar fora
+        document.getElementById('modal-options').addEventListener('click', function(e) {
+            if (e.target === this) fecharModal();
+        });
+
+        document.getElementById('modal-rotina').addEventListener('click', function(e) {
+            if (e.target === this) fecharModalRotina();
+        });
+
+        // Enter para salvar rotina
+        document.getElementById('nome-rotina-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                salvarComoRotina();
+            }
+        });
+    </script>
+</body>
+</html>
