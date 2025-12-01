@@ -355,12 +355,24 @@
                             data: treino.endTime,
                             dataObj: dataObj,
                             exercicios: treino.exercicios.reduce((acc, ex) => {
-                                acc[ex.name] = {
-                                    sets: ex.sets,
-                                    maquina: ex.machineId || "Manual",
-                                    maiorCarga: Math.max(...ex.sets.map(s => s.kg))
-                                };
-                                return acc;
+    // 1. Compatibilidade de nomes (Lê 'nome' ou 'name')
+    const nomeExercicio = ex.nome || ex.name || "Exercício";
+    
+    // 2. Compatibilidade do Array de Séries (Lê 'série' ou 'sets')
+    const listaSeries = ex.série || ex.sets || [];
+
+    // 3. Padronização dos dados internos (peso -> kg, representantes -> reps)
+    const setsPadronizados = listaSeries.map(s => ({
+        kg: (s.peso !== undefined) ? parseFloat(s.peso) : (parseFloat(s.kg) || 0),
+        reps: (s.representantes !== undefined) ? parseInt(s.representantes) : (parseInt(s.reps) || 0)
+    }));
+
+    acc[nomeExercicio] = {
+        sets: setsPadronizados, // Agora o HTML vai ler .kg e .reps corretamente
+        maquina: ex.machineId || "Manual",
+        maiorCarga: setsPadronizados.length > 0 ? Math.max(...setsPadronizados.map(s => s.kg)) : 0
+    };
+    return acc;
                             }, {}),
                             recordes: treino.exercicios.length, // Simplificado
                             volumeTotal: treino.totalVolume,
@@ -702,4 +714,5 @@
         });
     </script>
 </body>
+
 </html>
