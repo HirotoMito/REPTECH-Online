@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REPTECH - Relatório de Treino</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root { 
+            --bg-color: #000000; 
+            --card-bg: #111111; 
+            --accent-blue: #007AFF; 
+            --text-gray: #8E8E93;
+            --border-color: #2C2C2E;
+            --verde-energia: #1FBF77;
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: white; 
+            font-family: -apple-system, sans-serif; 
+            padding: 20px; 
+            margin: 0; 
+        }
+
+        .header { 
+            display: flex; 
+            align-items: center; 
+            margin-bottom: 25px; 
+        }
+        .btn-back { 
+            background: transparent; 
+            border: none; 
+            color: #888; 
+            font-size: 24px; 
+            cursor: pointer; 
+            margin-right: 15px; 
+        }
+        h1 { 
+            font-size: 20px; 
+            font-weight: 700; 
+            margin: 0; 
+        }
+
+        .treino-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .treino-data {
+            font-size: 14px;
+            color: var(--text-gray);
+            margin-bottom: 10px;
+        }
+
+        .treino-nome {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-gray);
+        }
+
+        .exercicio-section {
+            margin-top: 25px;
+        }
+
+        .exercicio-header {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .serie-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .serie-item:last-child {
+            border-bottom: none;
+        }
+
+        .serie-numero {
+            color: var(--text-gray);
+            font-size: 14px;
+        }
+
+        .serie-dados {
+            font-size: 14px;
+        }
+
+        .serie-carga {
+            color: var(--accent-blue);
+            font-weight: 600;
+        }
+
+        .pr-badge {
+            background: rgba(255, 215, 0, 0.2);
+            color: #FFD700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            margin-left: 8px;
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--accent-blue);
+            padding: 40px 20px;
+        }
+
+        .error-state {
+            text-align: center;
+            color: #FF453A;
+            padding: 40px 20px;
+        }
+
+        .no-exercises {
+            text-align: center;
+            color: var(--text-gray);
+            padding: 20px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <button class="btn-back" onclick="window.location.href='historico.html'">❮</button>
+        <h1>Relatório do Treino</h1>
+    </div>
+
+    <div id="relatorio-content">
+        <div class="loading">Carregando relatório...</div>
+    </div>
+
+    <script>
+        // --- CONFIGURAÇÃO FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessaoId = urlParams.get('sessao');
+
+        auth.onAuthStateChanged(user => {
+            if (user && sessaoId) {
+                loadRelatorioCompleto(user.uid, sessaoId);
+            } else {
+                window.location.href = "historico.html";
+            }
+        });
+
+        // ✅ CORREÇÃO: Função principal para carregar relatório
+        function loadRelatorioCompleto(uid, sessaoId) {
+            console.log("📊 Carregando relatório para sessão:", sessaoId);
+            
+            // Primeiro tenta carregar do histórico completo (NOVO FORMATO)
+            db.ref(`usuarios/${uid}/historico_completo/${sessaoId}`).once('value')
+                .then(snapshot => {
+                    const data = snapshot.val();
+                    console.log("✅ Dados do histórico completo encontrados:", data);
+                    
+                    if (data && data.exercicios) {
+                        renderRelatorioCompleto(data);
+                        return;
+                    }
+                    
+                    // Se não encontrar no formato novo, tenta o formato antigo
+                    console.log("📝 Nenhum dado no formato completo, tentando formato antigo...");
+                    loadRelatorioAntigo(uid, sessaoId);
+                })
+                .catch(error => {
+                    console.error("❌ Erro ao carregar relatório completo:", error);
+                    loadRelatorioAntigo(uid, sessaoId);
+                });
+        }
+
+        // ✅ CORREÇÃO: Função fallback para formato antigo
+        function loadRelatorioAntigo(uid, sessaoId) {
+            console.log("🔄 Carregando formato antigo para sessão:", sessaoId);
+            
+            // Tenta buscar no histórico por exercício
+            db.ref(`usuarios/${uid}/historico`)
+                .orderByChild('sessaoId')
+                .equalTo(sessaoId)
+                .once('value')
+                .then(snapshot => {
+                    const data = snapshot.val();
+                    console.log("📊 Dados do formato antigo:", data);
+                    
+                    if (!data || Object.keys(data).length === 0) {
+                        // Tenta buscar como número se a sessaoId for string
+                        return db.ref(`usuarios/${uid}/historico`)
+                            .orderByChild('sessaoId')
+                            .equalTo(parseInt(sessaoId))
+                            .once('value');
+                    }
+                    return { val: () => data };
+                })
+                .then(snapshot => {
+                    const data = snapshot.val();
+                    
+                    if (!data) {
+                        showError("Treino não encontrado.");
+                        return;
+                    }
+                    
+                    renderRelatorioAntigo(data);
+                })
+                .catch(error => {
+                    console.error("❌ Erro ao carregar relatório antigo:", error);
+                    showError("Erro ao carregar treino: " + error.message);
+                });
+        }
+
+        // ✅ CORREÇÃO: Renderizar relatório do NOVO FORMATO
+        function renderRelatorioCompleto(data) {
+            console.log("🎨 Renderizando relatório completo...");
+            console.log("Estrutura dos dados:", data);
+            
+            const dataTreino = new Date(data.data || data.endTime || Date.now());
+            const dataFormatada = dataTreino.toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            // ✅ CORREÇÃO: Verificar estrutura dos dados
+            const exercicios = data.exercicios || [];
+            const totalExercicios = Array.isArray(exercicios) ? exercicios.length : 0;
+            
+            console.log(`Total de exercícios: ${totalExercicios}`);
+            console.log("Exercícios:", exercicios);
+
+            let html = `
+                <div class="treino-card">
+                    <div class="treino-data">${dataFormatada}</div>
+                    <div class="treino-nome">${data.nomeTreino || 'Treino Completo'}</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${data.duracao || '--:--:--'}</div>
+                            <div class="stat-label">Duração</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatarVolume(data.volumeTotal || 0)}</div>
+                            <div class="stat-label">Volume</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${data.seriesTotais || 0}</div>
+                            <div class="stat-label">Séries</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card" style="grid-column: span 3; margin-top: 10px;">
+                        <div class="stat-value">${totalExercicios}</div>
+                        <div class="stat-label">Exercícios</div>
+                    </div>
+                </div>
+            `;
+
+            // ✅ CORREÇÃO: Adicionar cada exercício corretamente
+            if (Array.isArray(exercicios) && exercicios.length > 0) {
+                exercicios.forEach((exercicio, index) => {
+                    console.log(`Exercício ${index + 1}:`, exercicio);
+                    
+                    // ✅ CORREÇÃO: Acessar propriedades corretas
+                    const nomeExercicio = exercicio.nome || `Exercício ${index + 1}`;
+                    const series = exercicio.série || exercicio.sets || [];
+                    
+                    console.log(`  Nome: ${nomeExercicio}`);
+                    console.log(`  Séries: ${series.length}`);
+                    
+                    html += `
+                        <div class="treino-card">
+                            <div class="exercicio-header">
+                                ${nomeExercicio}
+                                <span style="font-size: 12px; color: var(--text-gray); margin-left: 10px;">
+                                    ${exercicio.músculo || exercicio.muscle || ''}
+                                </span>
+                            </div>
+                    `;
+
+                    // ✅ CORREÇÃO: Renderizar cada série
+                    if (series.length > 0) {
+                        series.forEach((set, setIndex) => {
+                            // ✅ CORREÇÃO: Acessar propriedades corretas
+                            const peso = set.peso || set.weight || 0;
+                            const reps = set.representantes || set.reps || 0;
+                            
+                            if (peso > 0 || reps > 0) {
+                                const prBadge = set.isPR ? '<span class="pr-badge">PR</span>' : '';
+                                
+                                html += `
+                                    <div class="serie-item">
+                                        <span class="serie-numero">Série ${setIndex + 1}</span>
+                                        <span class="serie-dados">
+                                            <span class="serie-carga">${peso}kg</span> × ${reps}
+                                            ${prBadge}
+                                        </span>
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        // ✅ Adicionar estatísticas do exercício
+                        const volumeExercicio = series.reduce((total, set) => {
+                            const peso = set.peso || set.weight || 0;
+                            const reps = set.representantes || set.reps || 0;
+                            return total + (peso * reps);
+                        }, 0);
+                        
+                        const maiorCarga = Math.max(...series.map(set => set.peso || set.weight || 0));
+                        
+                        html += `
+                            <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-gray);">
+                                    <span>Volume: ${formatarVolume(volumeExercicio)}</span>
+                                    <span>Maior carga: ${maiorCarga > 0 ? maiorCarga + 'kg' : '-'}</span>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        html += `<div class="no-exercises">Nenhuma série registrada</div>`;
+                    }
+
+                    html += `</div>`;
+                });
+            } else {
+                html += `<div class="treino-card"><div class="no-exercises">Nenhum exercício registrado neste treino</div></div>`;
+            }
+
+            document.getElementById('relatorio-content').innerHTML = html;
+            console.log("✅ Relatório completo renderizado!");
+        }
+
+        // ✅ CORREÇÃO: Renderizar relatório do FORMATO ANTIGO
+        function renderRelatorioAntigo(data) {
+            console.log("🎨 Renderizando formato antigo...");
+            
+            // Converter objeto para array
+            const sets = Object.values(data);
+            
+            // Agrupar por exercício
+            const exercicios = {};
+            let volumeTotal = 0;
+            let totalSets = 0;
+
+            sets.forEach(set => {
+                if (!set || !set.exercicio) return;
+                
+                const exNome = set.exercicio;
+                if (!exercicios[exNome]) {
+                    exercicios[exNome] = {
+                        sets: [],
+                        músculo: set.músculo || "Manual"
+                    };
+                }
+                
+                // Processar séries
+                const seriesArray = set.série || [];
+                seriesArray.forEach(serie => {
+                    const peso = serie.peso || 0;
+                    const reps = serie.representantes || 0;
+                    
+                    if (peso > 0 || reps > 0) {
+                        exercicios[exNome].sets.push({ 
+                            peso: peso, 
+                            reps: reps,
+                            isPR: serie.isPR || false
+                        });
+                        
+                        volumeTotal += peso * reps;
+                        totalSets++;
+                    }
+                });
+            });
+
+            console.log("Exercícios agrupados:", exercicios);
+
+            // Obter data do primeiro set
+            const primeiroSet = sets[0];
+            const dataTreino = new Date(primeiroSet.data || Date.now());
+            const dataFormatada = dataTreino.toLocaleDateString('pt-BR', {
+                weekday: 'long',
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            let html = `
+                <div class="treino-card">
+                    <div class="treino-data">${dataFormatada}</div>
+                    <div class="treino-nome">Treino Completo</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${Math.round(totalSets * 3)}min</div>
+                            <div class="stat-label">Tempo Est.</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatarVolume(volumeTotal)}</div>
+                            <div class="stat-label">Volume</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${totalSets}</div>
+                            <div class="stat-label">Séries</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Adicionar cada exercício
+            if (Object.keys(exercicios).length > 0) {
+                Object.entries(exercicios).forEach(([nome, dados]) => {
+                    if (dados.sets.length === 0) return;
+                    
+                    html += `
+                        <div class="treino-card">
+                            <div class="exercicio-header">
+                                ${nome}
+                                <span style="font-size: 12px; color: var(--text-gray); margin-left: 10px;">
+                                    ${dados.músculo}
+                                </span>
+                            </div>
+                    `;
+
+                    dados.sets.forEach((set, index) => {
+                        const prBadge = set.isPR ? '<span class="pr-badge">PR</span>' : '';
+                        
+                        html += `
+                            <div class="serie-item">
+                                <span class="serie-numero">Série ${index + 1}</span>
+                                <span class="serie-dados">
+                                    <span class="serie-carga">${set.peso}kg</span> × ${set.reps}
+                                    ${prBadge}
+                                </span>
+                            </div>
+                        `;
+                    });
+
+                    // Adicionar estatísticas do exercício
+                    const volumeExercicio = dados.sets.reduce((total, set) => total + (set.peso * set.reps), 0);
+                    const maiorCarga = Math.max(...dados.sets.map(set => set.peso || 0));
+                    
+                    html += `
+                        <div style="margin-top: 15px; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-gray);">
+                                <span>Volume: ${formatarVolume(volumeExercicio)}</span>
+                                <span>Maior carga: ${maiorCarga > 0 ? maiorCarga + 'kg' : '-'}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    html += `</div>`;
+                });
+            } else {
+                html += `<div class="treino-card"><div class="no-exercises">Nenhum exercício com dados válidos encontrado</div></div>`;
+            }
+
+            document.getElementById('relatorio-content').innerHTML = html;
+            console.log("✅ Formato antigo renderizado!");
+        }
+
+        // ✅ CORREÇÃO: Função para formatar volume
+        function formatarVolume(volume) {
+            if (volume >= 1000000) {
+                return (volume / 1000000).toFixed(1) + 'M kg';
+            } else if (volume >= 1000) {
+                return (volume / 1000).toFixed(1) + 'k kg';
+            } else if (volume > 0) {
+                return Math.round(volume) + ' kg';
+            } else {
+                return '0 kg';
+            }
+        }
+
+        // ✅ CORREÇÃO: Função para mostrar erro
+        function showError(message) {
+            document.getElementById('relatorio-content').innerHTML = `
+                <div class="error-state">
+                    <span style="font-size:40px; display:block; margin-bottom:10px;">⚠️</span>
+                    ${message}<br>
+                    <small>Sessão ID: ${sessaoId}</small>
+                    <br><br>
+                    <button onclick="window.location.href='historico.html'" 
+                            style="background: var(--accent-blue); color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer;">
+                        Voltar ao Histórico
+                    </button>
+                </div>`;
+        }
+    </script>
+</body>
+</html>
