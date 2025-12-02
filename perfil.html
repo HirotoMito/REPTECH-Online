@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Perfil Completo</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root { 
+            --bg-color: #0B0D0F;
+            --card-bg: #2A2E35;
+            --nav-bg: #1A1D21;
+            --verde-energia: #1FBF77;
+            --cinza-texto: #9CA3AF;
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: white; 
+            font-family: 'Nunito Sans', sans-serif;
+            padding: 0 0 100px 0; /* Padding bottom para nav bar */
+            margin: 0;
+        }
+
+        /* HEADER & TABS */
+        .profile-header {
+            background: linear-gradient(180deg, #1a1d21 0%, var(--bg-color) 100%);
+            padding: 40px 20px 20px 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .avatar {
+            width: 80px; height: 80px; border-radius: 50%;
+            background: #222; border: 2px solid var(--verde-energia);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; margin-bottom: 10px;
+            box-shadow: 0 0 20px rgba(31, 191, 119, 0.2);
+        }
+        .user-name { font-size: 20px; font-weight: 800; margin: 0; }
+        .user-tag { color: var(--cinza-texto); font-size: 12px; margin-bottom: 20px; }
+
+        /* TAB SWITCHER */
+        .tab-container {
+            display: flex; background: #15171a; border-radius: 25px; p-1;
+            margin-bottom: 10px; padding: 4px;
+        }
+        .tab-btn {
+            padding: 8px 25px; border-radius: 20px; border: none;
+            background: transparent; color: var(--cinza-texto);
+            font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.3s;
+        }
+        .tab-btn.active { background: var(--card-bg); color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* CONTENT AREAS */
+        .content-section { padding: 20px; display: none; animation: fadeIn 0.3s; }
+        .content-section.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* CARDS & CHARTS */
+        .card {
+            background: var(--card-bg); border-radius: 16px; padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05); margin-bottom: 15px;
+        }
+        .card-title { font-size: 14px; font-weight: 700; margin-bottom: 15px; color: white; display:flex; justify-content:space-between; }
+        
+        .diag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .diag-item { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; }
+        .diag-label { font-size: 10px; color: var(--cinza-texto); text-transform: uppercase; }
+        .diag-val { font-size: 16px; font-weight: 800; color: var(--verde-energia); margin-top: 5px; display: block; }
+
+        /* INPUTS & FORMS */
+        .input-group { margin-bottom: 15px; }
+        input, select {
+            width: 100%; background: #15171a; border: 1px solid #333;
+            color: white; padding: 12px; border-radius: 8px; box-sizing: border-box;
+            font-family: 'Nunito Sans', sans-serif;
+        }
+        .btn-action {
+            width: 100%; background: var(--verde-energia); border: none; padding: 12px;
+            border-radius: 10px; font-weight: 800; cursor: pointer; font-size: 14px;
+        }
+        
+        /* BOTTOM NAV */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 70px;
+            background: var(--nav-bg); border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex; justify-content: space-around; align-items: center; z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item { display: flex; flex-direction: column; align-items: center; width: 60px; text-decoration: none; color: var(--cinza-texto); }
+        .nav-icon svg { width: 24px; height: 24px; fill: currentColor; margin-bottom: 4px; }
+        .nav-label { font-size: 10px; font-weight: 600; }
+        .nav-item.active { color: var(--verde-energia); }
+        .nav-item.active .nav-icon svg { fill: var(--verde-energia); }
+
+        /* LISTA PESO */
+        .weight-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+        .weight-date { color: var(--cinza-texto); }
+    </style>
+</head>
+<body>
+
+    <div class="profile-header">
+        <div class="avatar">👤</div>
+        <h2 class="user-name" id="display-name">Carregando...</h2>
+        <span class="user-tag">Membro REPTECH</span>
+        
+        <div class="tab-container">
+            <button class="tab-btn active" onclick="switchTab('geral')">Geral</button>
+            <button class="tab-btn" onclick="switchTab('peso')">Peso & Evolução</button>
+            <button class="tab-btn" onclick="switchTab('editar')">Editar</button>
+        </div>
+    </div>
+
+    <!-- ABA 1: GERAL (ESTATÍSTICAS + DIAGNÓSTICO) -->
+    <div id="tab-geral" class="content-section active">
+        <div class="card">
+            <div class="card-title">Foco Muscular (Radar)</div>
+            <div style="height: 250px;">
+                <canvas id="muscleChart"></canvas>
+            </div>
+        </div>
+
+        <div class="diag-grid">
+            <div class="diag-item">
+                <span class="diag-label">IMC Atual</span>
+                <span class="diag-val" id="val-imc">--</span>
+            </div>
+            <div class="diag-item">
+                <span class="diag-label">Meta Hídrica</span>
+                <span class="diag-val" id="val-agua">--</span>
+            </div>
+            <div class="diag-item">
+                <span class="diag-label">Gasto Basal</span>
+                <span class="diag-val" id="val-tmb">--</span>
+            </div>
+            <div class="diag-item">
+                <span class="diag-label">Peso Ideal (Est.)</span>
+                <span class="diag-val" id="val-ideal">--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABA 2: PESO (PROGRESSO) -->
+    <div id="tab-peso" class="content-section">
+        <div class="card">
+            <div class="card-title">
+                <span>Evolução Corporal</span>
+                <span style="color:var(--verde-energia);" id="last-weight">-- kg</span>
+            </div>
+            <div style="height: 200px;">
+                <canvas id="weightChart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Novo Registro</div>
+            <div style="display:flex; gap:10px;">
+                <input type="number" id="new-weight" placeholder="Peso (kg)" step="0.1">
+                <input type="date" id="new-date">
+            </div>
+            <button class="btn-action" style="margin-top:10px;" onclick="addWeight()">SALVAR REGISTRO</button>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Histórico Recente</div>
+            <div id="weight-list">
+                <div style="text-align:center; color:#666; font-size:12px;">Carregando histórico...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABA 3: EDITAR PERFIL -->
+    <div id="tab-editar" class="content-section">
+        <div class="card">
+            <div class="input-group">
+                <label class="diag-label">Nome Completo</label>
+                <input type="text" id="input-name">
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="input-group" style="flex:1;">
+                    <label class="diag-label">Idade</label>
+                    <input type="number" id="input-age">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="diag-label">Sexo</label>
+                    <select id="input-sexo">
+                        <option value="masculino">Masculino</option>
+                        <option value="feminino">Feminino</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <div class="input-group" style="flex:1;">
+                    <label class="diag-label">Peso Atual</label>
+                    <input type="number" id="input-weight">
+                </div>
+                <div class="input-group" style="flex:1;">
+                    <label class="diag-label">Altura (cm)</label>
+                    <input type="number" id="input-height">
+                </div>
+            </div>
+            <button class="btn-action" onclick="saveProfile()">ATUALIZAR DADOS</button>
+            
+            <button onclick="firebase.auth().signOut()" style="background:transparent; border:1px solid #ff453a; color:#ff453a; width:100%; padding:12px; border-radius:10px; margin-top:20px; font-weight:700;">SAIR DA CONTA</button>
+        </div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav">
+        <a href="historico.html" class="nav-item">
+            <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43L20.57 12L17 15.57L8.43 7L12 3.43L10.57 2L9.14 3.43L7.71 2L5.57 4.14L4.14 2.71L2.71 4.14L4.14 5.57L2 7.71L3.43 9.14L2 10.57L5.57 14.14L14.14 22.71L17.71 19.14L19.14 20.57L20.57 19.14L19.14 17.71L20.57 16.29L19.14 14.86L20.57 14.86ZM6.29 12L12 6.29L17.71 12L12 17.71L6.29 12Z" /></svg></div>
+            <span class="nav-label">Histórico</span>
+        </a>
+        <a href="dashboard.html" class="nav-item">
+            <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg></div>
+            <span class="nav-label">Início</span>
+        </a>
+        <a href="perfil.html" class="nav-item active">
+            <div class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+            <span class="nav-label">Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.database();
+        let currentUser = null;
+        let weightChartInstance = null;
+        let muscleChartInstance = null;
+
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                currentUser = user;
+                loadProfile();
+                loadWeightHistory();
+                initCharts();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        // --- SISTEMA DE ABAS ---
+        function switchTab(tabName) {
+            document.querySelectorAll('.content-section').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // --- LÓGICA DE PERFIL (Geral) ---
+        function loadProfile() {
+            db.ref('usuarios/' + currentUser.uid + '/perfil').once('value').then(snapshot => {
+                const data = snapshot.val();
+                if (data) {
+                    document.getElementById('display-name').innerText = data.nome || "Atleta";
+                    
+                    // Preencher Form
+                    document.getElementById('input-name').value = data.nome || "";
+                    document.getElementById('input-weight').value = data.peso || "";
+                    document.getElementById('input-height').value = data.altura || "";
+                    document.getElementById('input-age').value = data.idade || "";
+                    
+                    // Cálculos
+                    calculateMetrics(data.peso, data.altura, data.idade, data.sexo);
+                }
+            });
+        }
+
+        function calculateMetrics(peso, altura, idade, sexo) {
+            if(!peso || !altura) return;
+            const p = parseFloat(peso);
+            const a = parseFloat(altura) / 100;
+            const age = parseInt(idade) || 25;
+
+            document.getElementById('val-imc').innerText = (p / (a * a)).toFixed(1);
+            document.getElementById('val-agua').innerText = ((p * 35) / 1000).toFixed(1) + " L";
+            document.getElementById('val-ideal').innerText = (22 * (a * a)).toFixed(0) + " kg";
+            
+            let tmb = (sexo === 'feminino') 
+                ? 655.1 + (9.563 * p) + (1.850 * (altura*100)) - (4.676 * age)
+                : 66.5 + (13.75 * p) + (5.003 * (altura*100)) - (6.755 * age);
+            document.getElementById('val-tmb').innerText = Math.round(tmb) + " kcal";
+        }
+
+        function saveProfile() {
+            const updates = {
+                nome: document.getElementById('input-name').value,
+                peso: document.getElementById('input-weight').value,
+                altura: document.getElementById('input-height').value,
+                idade: document.getElementById('input-age').value,
+                sexo: document.getElementById('input-sexo').value
+            };
+            db.ref('usuarios/' + currentUser.uid + '/perfil').update(updates).then(() => {
+                alert("Perfil Salvo!");
+                loadProfile();
+            });
+        }
+
+        // --- LÓGICA DE PESO (Progresso) ---
+        function loadWeightHistory() {
+            db.ref(`usuarios/${currentUser.uid}/progresso`).limitToLast(10).once('value').then(snapshot => {
+                const data = snapshot.val();
+                if(!data) {
+                    document.getElementById('weight-list').innerHTML = '<div style="text-align:center; color:#666;">Sem registros.</div>';
+                    return;
+                }
+
+                const entries = Object.entries(data).map(([k,v]) => ({...v, id:k}))
+                                .sort((a,b) => new Date(a.data) - new Date(b.data));
+
+                // Atualizar lista visual
+                const listEl = document.getElementById('weight-list');
+                listEl.innerHTML = '';
+                [...entries].reverse().forEach(entry => {
+                    const dateFmt = new Date(entry.data).toLocaleDateString('pt-BR');
+                    listEl.innerHTML += `
+                        <div class="weight-item">
+                            <span class="weight-date">${dateFmt}</span>
+                            <span style="font-weight:700; color:white;">${entry.peso} kg</span>
+                        </div>`;
+                });
+
+                // Atualizar Destaque
+                if(entries.length > 0) {
+                    const last = entries[entries.length - 1];
+                    document.getElementById('last-weight').innerText = last.peso + " kg";
+                }
+
+                // Atualizar Gráfico
+                updateWeightChart(entries);
+            });
+        }
+
+        function addWeight() {
+            const peso = document.getElementById('new-weight').value;
+            const data = document.getElementById('new-date').value || new Date().toISOString().split('T')[0];
+
+            if(!peso) return alert("Digite o peso!");
+
+            db.ref(`usuarios/${currentUser.uid}/progresso`).push({
+                peso: parseFloat(peso),
+                data: data,
+                timestamp: Date.now()
+            }).then(() => {
+                document.getElementById('new-weight').value = '';
+                loadWeightHistory();
+                alert("Peso registrado!");
+            });
+        }
+
+        // --- CHART.JS ---
+        function initCharts() {
+            // Radar (Mockup ou Dados Reais se tiver)
+            const ctxR = document.getElementById('muscleChart').getContext('2d');
+            muscleChartInstance = new Chart(ctxR, {
+                type: 'radar',
+                data: {
+                    labels: ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'],
+                    datasets: [{
+                        label: 'Intensidade',
+                        data: [7, 6, 8, 5, 7, 4], // Você pode conectar isso ao histórico depois
+                        backgroundColor: 'rgba(31, 191, 119, 0.2)',
+                        borderColor: '#1FBF77',
+                        pointBackgroundColor: '#1FBF77'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            pointLabels: { color: '#9CA3AF', font: {size:10} },
+                            ticks: { display: false }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Linha (Peso) - Inicialização vazia
+            const ctxL = document.getElementById('weightChart').getContext('2d');
+            weightChartInstance = new Chart(ctxL, {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#666', font:{size:10} } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateWeightChart(data) {
+            const labels = data.map(d => new Date(d.data).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}));
+            const values = data.map(d => d.peso);
+
+            weightChartInstance.data = {
+                labels: labels,
+                datasets: [{
+                    label: 'Peso',
+                    data: values,
+                    borderColor: '#1FBF77',
+                    backgroundColor: 'rgba(31, 191, 119, 0.1)',
+                    borderWidth: 2,
+                    pointRadius: 3,
+                    tension: 0.3,
+                    fill: true
+                }]
+            };
+            weightChartInstance.update();
+        }
+    </script>
+</body>
+</html>

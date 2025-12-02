@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Histórico</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        :root { 
+            --bg-color: #0B0D0F; 
+            --card-bg: #2A2E35; 
+            --nav-bg: #1A1D21;
+            --verde-energia: #1FBF77;
+            --cinza-texto: #9CA3AF;
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: white; 
+            font-family: -apple-system, sans-serif; 
+            padding: 20px 20px 100px 20px; 
+            margin: 0; 
+        }
+
+        .header { margin-bottom: 25px; padding-top: 10px; }
+        h1 { font-size: 24px; font-weight: 800; margin: 0; }
+        .subtitle { color: var(--cinza-texto); font-size: 14px; margin-top: 5px; }
+
+        /* LISTA DE HISTÓRICO */
+        .treino-card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .treino-top { display: flex; justify-content: space-between; align-items: center; }
+        
+        .date-badge {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.05); padding: 8px 12px; border-radius: 10px;
+            width: 40px;
+        }
+        .day { font-size: 18px; font-weight: 700; color: white; line-height: 1; }
+        .month { font-size: 10px; text-transform: uppercase; color: var(--cinza-texto); margin-top: 2px; }
+
+        .info-main { flex: 1; margin-left: 15px; }
+        .treino-nome { font-size: 16px; font-weight: 700; color: white; margin-bottom: 4px; display: block; }
+        .treino-meta { font-size: 12px; color: var(--cinza-texto); }
+
+        .btn-arrow { color: var(--verde-energia); font-size: 20px; border: none; background: transparent; }
+
+        /* BOTTOM NAV */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 70px;
+            background: var(--nav-bg); border-top: 1px solid rgba(255,255,255,0.05);
+            display: flex; justify-content: space-around; align-items: center; z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item { display: flex; flex-direction: column; align-items: center; width: 60px; text-decoration: none; color: var(--cinza-texto); }
+        .nav-icon svg { width: 24px; height: 24px; fill: currentColor; margin-bottom: 4px; }
+        .nav-label { font-size: 10px; font-weight: 600; }
+        .nav-item.active { color: var(--verde-energia); }
+        .nav-item.active .nav-icon svg { fill: var(--verde-energia); }
+
+        .empty-state { text-align: center; color: var(--cinza-texto); padding: 50px 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Histórico</h1>
+        <div class="subtitle">Seus treinos concluídos</div>
+    </div>
+
+    <div id="history-feed">
+        <div style="text-align:center; padding: 20px; color: #666;">Carregando...</div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="historico.html" class="nav-item active">
+            <div class="nav-icon">
+                <svg viewBox="0 0 24 24"><path d="M20.57 14.86L22 13.43L20.57 12L17 15.57L8.43 7L12 3.43L10.57 2L9.14 3.43L7.71 2L5.57 4.14L4.14 2.71L2.71 4.14L4.14 5.57L2 7.71L3.43 9.14L2 10.57L5.57 14.14L14.14 22.71L17.71 19.14L19.14 20.57L20.57 19.14L19.14 17.71L20.57 16.29L19.14 14.86L20.57 14.86ZM6.29 12L12 6.29L17.71 12L12 17.71L6.29 12Z" /></svg>
+            </div>
+            <span class="nav-label">Histórico</span>
+        </a>
+        <a href="dashboard.html" class="nav-item">
+            <div class="nav-icon">
+                <svg viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+            </div>
+            <span class="nav-label">Início</span>
+        </a>
+        <a href="perfil.html" class="nav-item">
+            <div class="nav-icon">
+                <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+            </div>
+            <span class="nav-label">Perfil</span>
+        </a>
+    </nav>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDo2Vhtj4aldfEr6CHoXVWP4fhhC1GZZIo",
+            authDomain: "reptech-mvp.firebaseapp.com",
+            databaseURL: "https://reptech-mvp-default-rtdb.firebaseio.com",
+            projectId: "reptech-mvp",
+            storageBucket: "reptech-mvp.firebasestorage.app",
+            messagingSenderId: "350784354776",
+            appId: "1:350784354776:web:6d7c99682b8e0980ec1aad"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        auth.onAuthStateChanged(user => {
+            if(user) loadHistory(user.uid);
+            else window.location.href = "index.html";
+        });
+
+        function loadHistory(uid) {
+            // Lógica híbrida para suportar histórico novo e antigo
+            db.ref(`usuarios/${uid}/historico_completo`).once('value').then(snapshot => {
+                const data = snapshot.val();
+                if(data) processNewFormat(data);
+                else loadLegacyHistory(uid);
+            });
+        }
+
+        function processNewFormat(data) {
+            const list = Object.entries(data).map(([id, t]) => ({
+                id,
+                date: new Date(t.data || t.endTime),
+                name: t.nomeTreino || "Treino Livre",
+                exercises: t.exercicios ? t.exercicios.length : 0,
+                duration: t.duracao || "--"
+            })).sort((a,b) => b.date - a.date);
+            renderList(list);
+        }
+
+        function loadLegacyHistory(uid) {
+            db.ref(`usuarios/${uid}/historico`).once('value').then(snapshot => {
+                const data = snapshot.val();
+                if(!data) {
+                    document.getElementById('history-feed').innerHTML = '<div class="empty-state">Sem treinos ainda.</div>';
+                    return;
+                }
+                
+                // Agrupamento simples para legado
+                const grouped = {};
+                Object.values(data).forEach(item => {
+                    const dateKey = item.data.split('T')[0];
+                    if(!grouped[dateKey]) grouped[dateKey] = { count: 0, date: new Date(item.data) };
+                    grouped[dateKey].count++;
+                });
+
+                const list = Object.entries(grouped).map(([k, v]) => ({
+                    id: k,
+                    date: v.date,
+                    name: "Treino Finalizado",
+                    exercises: v.count,
+                    duration: "Legacy"
+                })).sort((a,b) => b.date - a.date);
+                
+                renderList(list);
+            });
+        }
+
+        function renderList(treinos) {
+            const feed = document.getElementById('history-feed');
+            if(treinos.length === 0) {
+                feed.innerHTML = '<div class="empty-state">Nenhum treino encontrado.</div>';
+                return;
+            }
+
+            feed.innerHTML = treinos.map(t => `
+                <div class="treino-card" onclick="window.location.href='relatorio-treino.html?sessao=${t.id}'">
+                    <div class="treino-top">
+                        <div class="date-badge">
+                            <span class="day">${t.date.getDate()}</span>
+                            <span class="month">${t.date.toLocaleDateString('pt-BR', {month:'short'}).replace('.','')}</span>
+                        </div>
+                        <div class="info-main">
+                            <span class="treino-nome">${t.name}</span>
+                            <span class="treino-meta">${t.exercises} Exercícios • ${formatDuration(t.duration)}</span>
+                        </div>
+                        <button class="btn-arrow">›</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function formatDuration(d) {
+            if(d === "Legacy") return "Finalizado";
+            return d + " min"; // Simplificação
+        }
+    </script>
+</body>
+</html>
