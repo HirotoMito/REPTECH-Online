@@ -397,11 +397,12 @@
         const auth = firebase.auth();
         const db = firebase.database();
 
-        // ========== SISTEMA DE SOM ==========
+       // ========== SISTEMA DE SOM ==========
         const audioSystem = {
-            pr: new Audio('PR.mp3.wav'),
-            timer: new Audio('TIMER.mp3.wav'),
-            finish: new Audio('CONCLUIR.mp3.wav')
+            // Adicionei 'sons/' antes do nome de cada arquivo
+            pr: new Audio('sons/PR.mp3.wav'),
+            timer: new Audio('sons/TIMER.mp3.wav'),
+            finish: new Audio('sons/CONCLUIR.mp3.wav')
         };
 
         // Função auxiliar para tocar sem erros
@@ -1342,4 +1343,5 @@
         }
     </script>
 </body>
+
 </html>
