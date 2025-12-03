@@ -7,16 +7,14 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
     <style>
         :root { 
             --bg-color: #0B0D0F;
-            --card-bg: #1A1D21; /* Card levemente mais escuro */
-            --accent: #1FBF77;
+            --card-bg: #1A1D21;
+            --accent: #1FBF77; /* Verde Reptech */
             --text-main: #FFFFFF;
             --text-muted: #9CA3AF;
         }
@@ -33,99 +31,111 @@
         .header h1 { margin: 0; font-size: 24px; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; }
         .header p { margin: 5px 0 0; color: var(--text-muted); font-size: 14px; }
 
-        /* --- ÁREA DE PREVIEW DO CARD --- */
+        /* --- CONTAINER DE PREVIEW (Responsivo) --- */
         #preview-container {
             width: 100%;
-            max-width: 400px; /* Tamanho visual na tela */
-            aspect-ratio: 1/1; /* Quadrado */
+            max-width: 400px;
+            aspect-ratio: 1/1; /* Quadrado Instagram */
             margin-bottom: 20px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
             border-radius: 20px;
             overflow: hidden;
             position: relative;
+            background: #000;
         }
 
-        /* O CARD REAL (Sempre renderizado em alta qualidade e escalado via CSS) */
+        /* --- O CARD REAL (Renderizado em 1080p nativo) --- */
         #share-card {
-            width: 1080px; /* Resolução nativa Instagram */
+            width: 1080px;
             height: 1080px;
-            background-color: #000;
+            background-color: #000; /* Fundo preto total para o share */
             position: absolute;
             top: 0; left: 0;
             transform-origin: top left;
-            /* O JS vai calcular o scale() para caber no #preview-container */
             display: flex;
             flex-direction: column;
             padding: 60px;
             box-sizing: border-box;
             color: white;
-            font-family: 'Nunito Sans', sans-serif;
         }
 
-        /* --- ELEMENTOS COMUNS DO CARD --- */
+        /* --- ESTRUTURA DO CARD --- */
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
         .brand-logo { display: flex; align-items: center; gap: 15px; }
-        .brand-logo img { width: 60px; height: 60px; object-fit: contain; } /* Placeholder logo */
         .brand-text { font-size: 32px; font-weight: 800; letter-spacing: -1px; }
         .user-handle { font-size: 28px; color: var(--text-muted); font-weight: 600; }
 
-        .card-title { font-size: 64px; font-weight: 800; line-height: 1.1; margin-bottom: 10px; color: white; }
+        .card-title { font-size: 64px; font-weight: 800; line-height: 1.1; margin-bottom: 10px; color: white; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
         
-        /* Stats Row (Duração, Volume, Recordes) */
         .stats-grid { display: flex; gap: 60px; margin-bottom: 50px; }
         .stat-box { display: flex; flex-direction: column; }
         .stat-val { font-size: 56px; font-weight: 800; color: white; line-height: 1; }
         .stat-label { font-size: 24px; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-top: 10px; }
-        .highlight-pr { color: #FFD700; } /* Ouro para PR */
+        .highlight-pr { color: #FFD700; }
 
-        /* --- TEMA 1: LISTA (Estilo Imagem 1) --- */
-        .theme-list .content-area { display: flex; flex: 1; gap: 40px; }
-        .theme-list .list-col { flex: 1; display: flex; flex-direction: column; gap: 25px; }
-        .theme-list .visual-col { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+        /* --- LAYOUT DO MIOLO (Lista + Visualizador) --- */
+        .content-area { display: flex; flex: 1; gap: 40px; overflow: hidden; }
         
+        /* Coluna da Lista */
+        .list-col { flex: 1; display: flex; flex-direction: column; gap: 25px; }
         .ex-row { display: flex; align-items: baseline; gap: 15px; font-size: 32px; font-weight: 600; }
-        .ex-count { color: var(--accent); font-weight: 800; min-width: 50px; }
-        .ex-name { color: #E5E7EB; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px; }
-        
-        /* Boneco SVG simplificado para o visual */
-        .body-svg { width: 100%; height: 100%; opacity: 0.8; filter: drop-shadow(0 0 20px rgba(31,191,119,0.2)); }
-        
-        /* --- TEMA 2: RADAR (Estilo Imagem 2) --- */
-        .theme-radar .content-area { display: flex; flex-direction: column; align-items: center; flex: 1; justify-content: center; }
-        .theme-radar .chart-wrapper { width: 800px; height: 800px; position: relative; }
-        
-        /* --- TEMA 3: MINIMALIST (Foco no Logo) --- */
-        .theme-minimal { justify-content: center; align-items: center; text-align: center; background: radial-gradient(circle at center, #1A1D21 0%, #000000 100%); }
-        .theme-minimal .card-header { display: none; } /* Esconde header padrão */
-        .theme-minimal .big-logo { width: 300px; height: 300px; margin-bottom: 40px; filter: drop-shadow(0 0 30px var(--accent)); }
-        .theme-minimal .card-title { font-size: 80px; color: var(--accent); margin-bottom: 60px; }
-        .theme-minimal .stats-grid { justify-content: center; gap: 100px; }
-        .theme-minimal .stat-val { font-size: 80px; }
+        .ex-count { color: var(--accent); font-weight: 800; min-width: 60px; }
+        .ex-name { color: #E5E7EB; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 450px; }
 
-        /* --- CONTROLES DE UI --- */
-        .controls { width: 100%; max-width: 400px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .theme-btn {
-            background: #2A2E35; border: 1px solid #333; color: white; padding: 12px;
-            border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 14px;
-            transition: 0.2s;
+        /* Coluna do Visualizador 3D (Frente e Costas) */
+        .visual-col { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+        
+        .anatomy-container {
+            display: flex;
+            justify-content: center;
+            gap: 40px; /* Espaço entre Frente e Costas */
+            width: 100%;
+            height: 100%;
         }
-        .theme-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
-        .actions { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; }
+        .body-view {
+            position: relative;
+            width: 200px; /* Largura ajustada para caber no card 1080p */
+            height: 100%; 
+        }
+
+        .muscle-layer {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%); /* Centraliza vertical/horizontalmente */
+            width: 100%; 
+            height: 100%; /* Ajuste isso se a imagem cortar */
+            max-height: 500px; /* Altura máxima do boneco */
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            transition: opacity 0.5s ease;
+        }
+
+        /* Estilos das Camadas */
+        .layer-base { z-index: 1; opacity: 0.5; filter: grayscale(100%); }
+        .layer-highlight { z-index: 2; opacity: 0; mix-blend-mode: screen; filter: drop-shadow(0 0 10px rgba(0, 170, 255, 0.6)); }
+        .layer-highlight.active { opacity: 1; }
+
+        .view-label {
+            position: absolute; bottom: 40px; width: 100%; text-align: center;
+            color: #555; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 2px;
+        }
+
+        /* --- BOTÕES --- */
+        .actions { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .btn-share {
             background: var(--accent); color: #000; border: none; padding: 16px;
             border-radius: 50px; font-weight: 800; font-size: 16px; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 10px;
-            box-shadow: 0 5px 20px rgba(31,191,119,0.3);
+            box-shadow: 0 5px 20px rgba(31,191,119,0.3); transition: transform 0.2s;
         }
+        .btn-share:active { transform: scale(0.98); }
         .btn-home {
             background: transparent; color: var(--text-muted); border: 1px solid #333;
             padding: 14px; border-radius: 50px; font-weight: 600; cursor: pointer;
         }
 
-        /* Helper Chart.js customização */
-        canvas { max-width: 100%; }
-        
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
@@ -133,11 +143,11 @@
 
     <div class="header">
         <h1>Treino Concluído!</h1>
-        <p>Ótimo trabalho. Agora compartilhe sua conquista.</p>
+        <p>Seu corpo é uma máquina. Veja o resultado.</p>
     </div>
 
     <div id="preview-container">
-        <div id="share-card" class="theme-list">
+        <div id="share-card">
             
             <div class="card-header">
                 <div class="brand-logo">
@@ -149,19 +159,19 @@
                 <div class="user-handle">@atleta</div>
             </div>
 
-            <div class="card-title" id="card-workout-name">Upper Body A</div>
+            <div class="card-title" id="card-workout-name">Carregando...</div>
 
             <div class="stats-grid">
                 <div class="stat-box">
-                    <span class="stat-val" id="card-duration">1h 48m</span>
+                    <span class="stat-val" id="card-duration">--</span>
                     <span class="stat-label">Duração</span>
                 </div>
                 <div class="stat-box">
-                    <span class="stat-val" id="card-volume">7.415 kg</span>
+                    <span class="stat-val" id="card-volume">--</span>
                     <span class="stat-label">Volume</span>
                 </div>
                 <div class="stat-box" id="pr-box">
-                    <span class="stat-val highlight-pr" id="card-pr">1</span>
+                    <span class="stat-val highlight-pr" id="card-pr">0</span>
                     <span class="stat-label">Recordes</span>
                 </div>
             </div>
@@ -175,38 +185,64 @@
         </div>
     </div>
 
-    <div class="controls">
-        <button class="theme-btn active" onclick="setTheme('list')">📋 Lista</button>
-        <button class="theme-btn" onclick="setTheme('radar')">🕸️ Radar</button>
-        <button class="theme-btn" onclick="setTheme('minimal')">⚡ Minimal</button>
-    </div>
-
     <div class="actions">
         <button class="btn-share" onclick="downloadCard()">
             <span>📥</span> Baixar Imagem
         </button>
-        <button class="btn-home" onclick="window.location.href='dashboard.html'">
+        <button class="btn-home" onclick="window.location.href='index.html'">
             Voltar ao Início
         </button>
     </div>
 
     <script>
-        // 1. Carregar Dados e Tocar Som
-        const audio = new Audio('sons/CONCLUIR.mp3.wav'); // Ajuste o caminho se necessário
-        
-        // Tenta tocar o som (navegadores bloqueiam autoplay sem interação, mas como veio de um clique no treino.html, pode funcionar)
+        // --- 1. CONFIGURAÇÃO E DADOS ---
+        let workoutData = {};
+
         document.addEventListener('DOMContentLoaded', () => {
-            audio.volume = 0.5;
-            audio.play().catch(e => console.log("Audio autoplay bloqueado pelo navegador"));
+            // Tenta carregar dados. Se não houver, CRIA DADOS DE TESTE para você ver funcionando agora.
+            const dataStr = localStorage.getItem('reptech_last_workout');
             
-            // Efeito de Confete
-            confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#1FBF77', '#FFFFFF'] });
+            if (dataStr) {
+                workoutData = JSON.parse(dataStr);
+            } else {
+                // DADOS DE TESTE (Fallback)
+                console.log("Modo Teste: Usando dados fictícios");
+                workoutData = {
+                    nomeTreino: "Upper Body Power",
+                    duracao: "1h 15m",
+                    volume: 8450,
+                    recordes: 2,
+                    exercicios: [
+                        { nome: "Supino Reto com Barra", series: 4 },
+                        { nome: "Puxada Alta na Frente", series: 4 },
+                        { nome: "Desenvolvimento Militar", series: 3 },
+                        { nome: "Crucifixo Máquina", series: 3 },
+                        { nome: "Remada Curvada", series: 4 }
+                    ]
+                };
+            }
+
+            // Popula o Header e Stats
+            document.getElementById('card-workout-name').innerText = workoutData.nomeTreino;
+            document.getElementById('card-duration').innerText = workoutData.duracao;
+            document.getElementById('card-volume').innerText = `${(workoutData.volume).toLocaleString('pt-BR')} kg`;
+            document.getElementById('card-pr').innerText = workoutData.recordes;
             
-            loadData();
+            if(!workoutData.recordes || workoutData.recordes === 0) {
+                 document.getElementById('pr-box').style.opacity = '0.3';
+            }
+
+            // Renderiza o Visual
+            renderRealistcTheme();
+            
+            // Ajusta o tamanho na tela do celular
             resizeCard();
+            
+            // Confetes!
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#1FBF77', '#FFFFFF'] });
         });
 
-        // Responsividade do Preview: Escala o card de 1080px para caber na tela do celular
+        // Responsividade (Scale)
         function resizeCard() {
             const container = document.getElementById('preview-container');
             const card = document.getElementById('share-card');
@@ -215,164 +251,128 @@
         }
         window.addEventListener('resize', resizeCard);
 
-        let workoutData = {};
-        let radarChartInstance = null;
+        // --- 2. LÓGICA DO MAPA MUSCULAR ---
+        function renderRealistcTheme() {
+            const container = document.getElementById('dynamic-content');
 
-        function loadData() {
-            const dataStr = localStorage.getItem('reptech_last_workout');
-            if (!dataStr) {
-                alert("Nenhum dado de treino encontrado recentente.");
-                // window.location.href = 'dashboard.html';
-                return;
-            }
-            
-            workoutData = JSON.parse(dataStr);
-
-            // Popula dados estáticos
-            document.getElementById('card-workout-name').innerText = workoutData.nomeTreino;
-            document.getElementById('card-duration').innerText = workoutData.duracao;
-            document.getElementById('card-volume').innerText = `${(workoutData.volume).toLocaleString('pt-BR')} kg`;
-            document.getElementById('card-pr').innerText = workoutData.recordes;
-            
-            if(workoutData.recordes === 0) document.getElementById('pr-box').style.display = 'none';
-
-            // Inicia com tema Lista
-            setTheme('list');
-        }
-
-        function setTheme(theme) {
-            const card = document.getElementById('share-card');
-            const content = document.getElementById('dynamic-content');
-            
-            // Reset classes
-            card.className = '';
-            card.classList.add(`theme-${theme}`);
-            
-            // Atualiza botões
-            document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
-            event.target.classList.add('active'); // Nota: event pode ser undefined na carga inicial, tratado abaixo
-
-            // Renderiza conteúdo baseado no tema
-            content.innerHTML = '';
-            
-            if (theme === 'list') {
-                renderListTheme(content);
-            } else if (theme === 'radar') {
-                renderRadarTheme(content);
-            } else if (theme === 'minimal') {
-                renderMinimalTheme(content);
-            }
-        }
-
-        function renderListTheme(container) {
-            // Coluna Esquerda: Lista
-            const listHtml = workoutData.exercicios.slice(0, 6).map(ex => `
+            // A. Renderiza a Lista (Texto Esquerda)
+            const listHtml = workoutData.exercicios.slice(0, 7).map(ex => `
                 <div class="ex-row">
                     <span class="ex-count">${ex.series}x</span>
                     <span class="ex-name">${ex.nome}</span>
                 </div>
             `).join('');
 
-            // SVG do Corpo Humano (Simplificado Visualmente para CSS)
-            // Usando um SVG inline genérico para dar o visual "Tech"
-            const visualHtml = `
-                <svg viewBox="0 0 200 400" fill="none" class="body-svg">
-                    <path d="M100 20 C 120 20, 130 35, 130 50 C 130 65, 120 80, 100 80 C 80 80, 70 65, 70 50 C 70 35, 80 20, 100 20" stroke="#1FBF77" stroke-width="2"/>
-                    <path d="M70 80 L 40 120 L 30 200" stroke="#333" stroke-width="4"/>
-                    <path d="M130 80 L 160 120 L 170 200" stroke="#333" stroke-width="4"/>
-                    <path d="M70 80 L 70 200 L 60 380" stroke="#333" stroke-width="4"/>
-                    <path d="M130 80 L 130 200 L 140 380" stroke="#333" stroke-width="4"/>
-                    <rect x="70" y="80" width="60" height="120" rx="10" stroke="#1FBF77" stroke-width="2" fill="rgba(31,191,119,0.1)"/>
-                </svg>
-            `;
+            // B. Mapeamento Inteligente (Palavra Chave -> Arquivo PNG)
+            // IMPORTANTE: Estes nomes (direita) devem bater com os arquivos dentro da pasta 'imgmusculos'
+            const map = {
+                'supino': 'peito',
+                'fly': 'peito',
+                'flexão': 'peito',
+                'crossover': 'peito',
+                'peitoral': 'peito',
+                'crucifixo': 'peito',
+                
+                'desenvolvimento': 'ombro',
+                'elevação': 'ombro',
+                'militar': 'ombro',
+                'arnold': 'ombro',
+                
+                'puxada': 'dorsal',
+                'remada': 'dorsal',
+                'barra': 'dorsal',
+                'pulldown': 'dorsal',
+                'terra': 'dorsal'
+            };
 
-            container.innerHTML = `
-                <div class="list-col">${listHtml}</div>
-                <div class="visual-col">${visualHtml}</div>
-            `;
-        }
-
-        function renderRadarTheme(container) {
-            container.innerHTML = `<div class="chart-wrapper"><canvas id="radarChart"></canvas></div>`;
-            
-            const ctx = document.getElementById('radarChart').getContext('2d');
-            const labels = Object.keys(workoutData.musculos);
-            const data = Object.values(workoutData.musculos);
-
-            // Chart.js Configuration
-            new Chart(ctx, {
-                type: 'radar',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Volume (kg)',
-                        data: data,
-                        backgroundColor: 'rgba(31, 191, 119, 0.5)',
-                        borderColor: '#1FBF77',
-                        borderWidth: 4,
-                        pointBackgroundColor: '#fff',
-                        pointBorderColor: '#1FBF77',
-                        pointRadius: 6
-                    }]
-                },
-                options: {
-                    scales: {
-                        r: {
-                            angleLines: { color: '#333' },
-                            grid: { color: '#333' },
-                            pointLabels: { color: 'white', font: { size: 24, weight: 'bold', family: 'Nunito Sans' } },
-                            ticks: { display: false, backdropColor: 'transparent' }
-                        }
-                    },
-                    plugins: { legend: { display: false } },
-                    maintainAspectRatio: false
+            let activeMuscles = new Set();
+            workoutData.exercicios.forEach(ex => {
+                const nomeLower = ex.nome.toLowerCase();
+                for (const [key, file] of Object.entries(map)) {
+                    if (nomeLower.includes(key)) activeMuscles.add(file);
                 }
             });
-        }
 
-        function renderMinimalTheme(container) {
-            // Este tema centraliza o logo e destaca a marca
+            // Função auxiliar para criar a div da camada com o caminho correto
+            const getLayer = (muscleName) => {
+                const isActive = activeMuscles.has(muscleName) ? 'active' : '';
+                // CAMINHO ATUALIZADO: 'imgmusculos/'
+                return `<div class="muscle-layer layer-highlight ${isActive}" style="background-image: url('imgmusculos/${muscleName}.png');"></div>`;
+            };
+
+            // C. Montagem dos Bonecos (Frente e Costas)
+            
+            // FRENTE (Mostra Peito e Ombro)
+            const frontViewHtml = `
+                <div class="body-view">
+                    <div class="muscle-layer layer-base" style="background-image: url('imgmusculos/base.png');"></div>
+                    
+                    ${getLayer('peito')}
+                    ${getLayer('ombro')}
+                    
+                    <div class="view-label">Frente</div>
+                </div>
+            `;
+
+            // COSTAS (Mostra Dorsal)
+            const backViewHtml = `
+                <div class="body-view">
+                    <div class="muscle-layer layer-base" style="background-image: url('imgmusculos/base.png');"></div>
+                    
+                    ${getLayer('dorsal')}
+                    
+                    <div class="view-label">Costas</div>
+                </div>
+            `;
+
+            // D. Injeção no DOM
             container.innerHTML = `
-                <svg class="big-logo" viewBox="0 0 24 24" fill="none" stroke="#1FBF77" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="rgba(31,191,119,0.1)"></path>
-                </svg>
-                <div style="font-size: 24px; color: #666; letter-spacing: 4px; text-transform: uppercase;">Mission Complete</div>
+                <div class="list-col">${listHtml}</div>
+                <div class="visual-col">
+                    <div class="anatomy-container">
+                        ${frontViewHtml}
+                        ${backViewHtml}
+                    </div>
+                </div>
             `;
         }
 
+        // --- 3. DOWNLOAD DA IMAGEM ---
         function downloadCard() {
             const card = document.getElementById('share-card');
             const btn = document.querySelector('.btn-share');
             
+            // Feedback visual
+            const originalText = btn.innerHTML;
             btn.innerHTML = '⏳ Gerando...';
-            
+            btn.style.opacity = '0.7';
+
+            // Html2Canvas captura o elemento em alta resolução
             html2canvas(card, {
-                scale: 1, // Já estamos em 1080p nativo
-                backgroundColor: null, // Usa o background do CSS
-                useCORS: true // Permite carregar imagens externas se necessário
+                scale: 1, // 1 = 1080px (já definido no CSS)
+                backgroundColor: null,
+                useCORS: true, // Importante para imagens locais
+                allowTaint: true
             }).then(canvas => {
+                // Cria link de download
                 const link = document.createElement('a');
                 link.download = `reptech_treino_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png');
                 link.click();
                 
-                btn.innerHTML = '<span>📥</span> Baixar Imagem';
-                showToast("Imagem salva! Pronto para postar.");
+                // Restaura botão
+                btn.innerHTML = originalText;
+                btn.style.opacity = '1';
+                
+                // Toast simples
+                alert("Imagem salva na galeria!");
+            }).catch(err => {
+                console.error(err);
+                alert("Erro ao gerar imagem. Tente novamente.");
+                btn.innerHTML = originalText;
+                btn.style.opacity = '1';
             });
         }
-
-        function showToast(msg) {
-            // Simples toast nativo para feedback rápido
-            const toast = document.createElement('div');
-            toast.innerText = msg;
-            toast.style.cssText = "position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1FBF77; color:#000; padding:12px 24px; border-radius:30px; font-weight:bold; animation: fadeIn 0.3s;";
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-        
-        // Inicializa botões corretamente na primeira carga
-        document.querySelector('.theme-btn').classList.add('active');
-
     </script>
 </body>
 </html>
