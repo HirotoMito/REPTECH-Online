@@ -1,0 +1,85 @@
+:root {
+  --bg-color: #000000;
+  --card-bg: #1c1c1e;
+  --accent-blue: #0A84FF;
+  --text-color: #ffffff;
+}
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  margin: 0;
+  font-family: -apple-system, sans-serif;
+  flex-direction: column;
+}
+
+.login-card {
+  background: var(--card-bg);
+  padding: 30px;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 350px;
+  text-align: center;
+  border: 1px solid #333;
+}
+
+h1 {
+  margin-bottom: 5px;
+  color: var(--accent-blue);
+}
+
+p {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 25px;
+}
+
+input {
+  width: 100%;
+  padding: 15px;
+  margin-bottom: 15px;
+  background: #2c2c2e;
+  border: 1px solid #333;
+  border-radius: 10px;
+  color: white;
+  font-size: 16px;
+  box-sizing: border-box;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 15px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 10px;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent-blue);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: underline;
+}
+
+.error-msg {
+  color: #ff453a;
+  font-size: 13px;
+  margin-bottom: 15px;
+  display: none;
+}
