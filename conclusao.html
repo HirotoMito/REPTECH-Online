@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>REPTECH - Compartilhar Treino</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root { 
+            --bg-color: #0B0D0F;
+            --card-bg: #1A1D21;
+            --accent: #1FBF77;  /* Verde Neon */
+            --text-main: #FFFFFF;
+            --text-muted: #9CA3AF;
+            --gold: #FFD700;
+            --share-card-bg: #171725; /* Nova Cor Solicitada */
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: 'Nunito Sans', sans-serif; 
+            margin: 0; padding: 20px; 
+            display: flex; flex-direction: column; align-items: center; 
+            min-height: 100vh;
+        }
+
+        /* --- UI DE CONTROLE --- */
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 800; color: var(--accent); text-transform: uppercase; }
+        .header p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
+
+        .template-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #15171a;
+            padding: 5px;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        .tmpl-btn {
+            background: transparent; border: none; color: var(--text-muted);
+            padding: 10px 20px; border-radius: 8px; font-weight: 700; cursor: pointer;
+            font-size: 14px; transition: all 0.2s;
+        }
+        .tmpl-btn.active { background: var(--card-bg); color: var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,0.2); }
+
+        /* --- PREVIEW --- */
+        #preview-wrapper {
+            width: 100%; max-width: 500px;
+            aspect-ratio: 1/1;
+            position: relative; margin-bottom: 30px;
+            border-radius: 20px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+            border: 1px solid #333; overflow: hidden; background: #000;
+        }
+
+        /* --- CARD REAL (1080x1080) --- */
+        #share-card {
+            width: 1080px; height: 1080px;
+            /* Alterado para a cor sólida solicitada #171725 */
+            background: var(--share-card-bg);
+            position: absolute; top: 0; left: 0; transform-origin: top left;
+            display: flex; flex-direction: column; padding: 80px;
+            box-sizing: border-box; color: white;
+        }
+
+        /* --- LOGO FLUTUANTE (Canto Superior Direito) --- */
+        .logo-top-right {
+            position: absolute;
+            top: 60px;
+            right: 60px;
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Título do Treino */
+        .card-header-common { margin-bottom: 50px; text-align: center; margin-top: 60px; } 
+        .workout-title { font-size: 72px; font-weight: 900; line-height: 1.1; margin: 0; color: white; }
+        .workout-subtitle { font-size: 32px; color: var(--text-muted); font-weight: 600; margin-top: 10px; }
+
+        /* --- MODELO A: GERAL (Centralizado) --- */
+        .template-a .metrics-row {
+            display: flex;
+            justify-content: center; 
+            gap: 80px; 
+            margin-top: 80px;
+            margin-bottom: 80px;
+        }
+        .template-a .metric-box { 
+            display: flex; flex-direction: column; 
+            align-items: center; 
+        }
+        .template-a .metric-val { font-size: 110px; font-weight: 800; color: white; line-height: 1; letter-spacing: -4px; }
+        .template-a .metric-label { font-size: 28px; color: var(--accent); font-weight: 800; text-transform: uppercase; margin-top: 20px; letter-spacing: 3px; }
+        
+        .template-a .highlight-pr { color: var(--gold); text-shadow: 0 0 30px rgba(255, 215, 0, 0.3); }
+
+        .template-a .stats-secondary {
+            background: rgba(255,255,255,0.03);
+            border-radius: 40px;
+            padding: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 80px;
+            margin-top: auto; 
+            margin-bottom: 80px; 
+        }
+        .template-a .sec-stat { font-size: 42px; font-weight: 700; color: #E5E7EB; }
+        .template-a .sec-stat b { color: var(--accent); font-size: 54px; margin-right: 15px; }
+
+        /* --- MODELO B: GRÁFICO (Centralizado) --- */
+        .template-b .chart-container {
+            flex: 1; position: relative; display: flex; justify-content: center; align-items: center; padding: 20px;
+            margin-top: 20px; margin-bottom: 60px;
+        }
+        .template-b .mini-metrics {
+            display: flex;
+            justify-content: center;
+            gap: 80px;
+            margin-bottom: 60px;
+            margin-top: 20px;
+        }
+        .template-b .mini-metric-item { 
+            display: flex; flex-direction: column; 
+            align-items: center;
+        }
+        .template-b .mm-val { font-size: 56px; font-weight: 800; color: white; }
+        .template-b .mm-lbl { font-size: 24px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- MODELO C: LISTA --- */
+        .template-c .exercises-list { display: flex; flex-direction: column; gap: 40px; margin-top: 40px; }
+        .template-c .ex-item {
+            display: flex; align-items: baseline; gap: 30px;
+            border-bottom: 2px solid rgba(255,255,255,0.05); padding-bottom: 25px;
+        }
+        .template-c .ex-sets { font-size: 48px; font-weight: 900; color: var(--accent); min-width: 90px; text-align: right; }
+        .template-c .ex-name { font-size: 48px; font-weight: 700; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 800px; }
+
+        /* --- AÇÕES --- */
+        .actions { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 12px; }
+        .btn-share {
+            background: var(--accent); color: #000; border: none; padding: 18px;
+            border-radius: 50px; font-weight: 800; font-size: 16px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 8px 25px rgba(31,191,119,0.3); transition: transform 0.2s;
+        }
+        .btn-share:active { transform: scale(0.98); }
+        .btn-home {
+            background: transparent; color: var(--text-muted); border: 1px solid #333;
+            padding: 14px; border-radius: 50px; font-weight: 600; cursor: pointer;
+        }
+
+        #radarChart { display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Compartilhar</h1>
+        <p>Escolha o layout para seus stories</p>
+    </div>
+
+    <div class="template-selector">
+        <button class="tmpl-btn active" onclick="setTemplate('A')">Geral</button>
+        <button class="tmpl-btn" onclick="setTemplate('B')">Gráfico</button>
+        <button class="tmpl-btn" onclick="setTemplate('C')">Lista</button>
+    </div>
+
+    <div id="preview-wrapper">
+        <div id="share-card" class="template-a">
+            </div>
+    </div>
+
+    <div class="actions">
+        <button class="btn-share" onclick="downloadCard()">
+            <span>📥</span> Baixar Imagem
+        </button>
+        <button class="btn-home" onclick="window.location.href='index.html'">
+            Voltar ao Início
+        </button>
+    </div>
+
+    <script>
+        // --- MOCK DATA (Agora com 'grupo' para gerar o gráfico dinamicamente) ---
+        const workoutData = {
+            nome: "Upper Power A",
+            duracao: "1h 48min",
+            volume: "7.415",
+            prs: 4,
+            exercicios: [
+                { nome: "Supino Reto Barra", series: 4, grupo: "Peito" },
+                { nome: "Puxada Alta Frente", series: 4, grupo: "Costas" },
+                { nome: "Desenvolvimento Halter", series: 3, grupo: "Ombros" },
+                { nome: "Rosca Direta Polia", series: 3, grupo: "Braços" },
+                { nome: "Tríceps Testa", series: 3, grupo: "Braços" },
+                { nome: "Elevação Lateral", series: 4, grupo: "Ombros" },
+                { nome: "Crucifixo", series: 3, grupo: "Peito" }
+            ],
+            // userHandle: "@atleta_reptech"
+        };
+
+        // Função para calcular stats baseado nos exercicios realizados
+        function calculateDynamicStats() {
+            // Pilares do Hexágono
+            const categories = ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'];
+            
+            // Inicializa contagem
+            const stats = { 'Peito': 0, 'Costas': 0, 'Pernas': 0, 'Ombros': 0, 'Braços': 0, 'Core': 0 };
+
+            // Soma as séries de cada grupo
+            workoutData.exercicios.forEach(ex => {
+                if (stats.hasOwnProperty(ex.grupo)) {
+                    stats[ex.grupo] += ex.series;
+                }
+            });
+            
+            // Retorna array na ordem correta das labels do gráfico
+            return categories.map(cat => stats[cat]);
+        }
+
+        let currentTemplate = 'A';
+        let chartInstance = null;
+
+        function setTemplate(tmpl) {
+            currentTemplate = tmpl;
+            
+            document.querySelectorAll('.tmpl-btn').forEach(b => {
+                b.classList.remove('active');
+                if(b.textContent.startsWith(tmpl === 'A' ? 'Geral' : tmpl === 'B' ? 'Gráfico' : 'Lista')) 
+                    b.classList.add('active');
+            });
+
+            const card = document.getElementById('share-card');
+            card.className = `template-${tmpl.toLowerCase()}`;
+            card.innerHTML = ''; 
+
+            // 1. LOGO: Canto Superior Direito (AUMENTADO para 180px)
+            const logoHTML = `
+                <div class="logo-top-right">
+                    <img src="logo.png" onerror="this.style.display='none'; document.getElementById('svg-logo').style.display='flex'" style="height: 180px; display: block;">
+                    <div id="svg-logo" style="display: none; align-items: center; gap: 15px;">
+                        <svg width="180" height="180" viewBox="0 0 24 24" fill="none">
+                            <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" fill="#1FBF77" stroke="#1FBF77" stroke-width="1.5" stroke-linejoin="round"/>
+                        </svg>
+                    </div>
+                </div>
+            `;
+
+            // 2. HEADER COMUM
+            const commonHeader = `
+                <div class="card-header-common">
+                    <h2 class="workout-title">${workoutData.nome}</h2>
+                    <div class="workout-subtitle">Treino de Força • Concluído</div>
+                </div>
+            `;
+            
+            let content = '';
+
+            // --- RENDERIZAR TEMPLATES ---
+            
+            if (tmpl === 'A') { // GERAL
+                content = `
+                    ${logoHTML}
+                    ${commonHeader}
+                    <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                        <div class="metrics-row">
+                            <div class="metric-box">
+                                <span class="metric-val">${workoutData.duracao}</span>
+                                <span class="metric-label">Duração</span>
+                            </div>
+                            <div class="metric-box">
+                                <span class="metric-val">${workoutData.volume} kg</span>
+                                <span class="metric-label">Volume</span>
+                            </div>
+                        </div>
+
+                        <div class="metrics-row" style="margin-top: 0;">
+                            <div class="metric-box">
+                                <span class="metric-val highlight-pr">${workoutData.prs} 🏆</span>
+                                <span class="metric-label" style="color: #FFD700;">Recordes</span>
+                            </div>
+                        </div>
+
+                        <div class="stats-secondary">
+                            <div class="sec-stat"><b>${workoutData.exercicios.length}</b> Exercícios</div>
+                            <div class="sec-stat"><b>${workoutData.exercicios.reduce((acc, ex) => acc + ex.series, 0)}</b> Séries</div>
+                        </div>
+                    </div>
+                `;
+                card.innerHTML = content;
+
+            } else if (tmpl === 'B') { // GRÁFICO
+                content = `
+                    ${logoHTML}
+                    <div class="card-header-common" style="margin-bottom: 20px;">
+                        <h2 class="workout-title" style="font-size: 54px; margin-bottom: 40px;">${workoutData.nome}</h2>
+                        
+                        <div class="mini-metrics">
+                            <div class="mini-metric-item">
+                                <span class="mm-val">${workoutData.duracao}</span>
+                                <span class="mm-lbl">Tempo</span>
+                            </div>
+                            <div class="mini-metric-item">
+                                <span class="mm-val">${workoutData.volume}kg</span>
+                                <span class="mm-lbl">Volume</span>
+                            </div>
+                            <div class="mini-metric-item">
+                                <span class="mm-val" style="color: #FFD700;">${workoutData.prs} 🏆</span>
+                                <span class="mm-lbl">PRs</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                    <div style="text-align: center; color: #666; font-size: 24px; margin-bottom: 40px;">Distribuição de Volume por Grupo Muscular</div>
+                `;
+                card.innerHTML = content;
+                setTimeout(initChart, 100);
+
+            } else if (tmpl === 'C') { // LISTA
+                const listHTML = workoutData.exercicios.slice(0, 6).map(ex => `
+                    <div class="ex-item">
+                        <span class="ex-sets">${ex.series}x</span>
+                        <span class="ex-name">${ex.nome}</span>
+                    </div>
+                `).join('');
+
+                content = `
+                    ${logoHTML}
+                    <div class="card-header-common" style="text-align: left; margin-bottom: 20px; padding-right: 200px;"> <h2 class="workout-title" style="font-size: 64px;">${workoutData.nome}</h2>
+                        <div class="workout-subtitle">Resumo do Treino</div>
+                    </div>
+                    <div style="flex: 1;">
+                        <div class="exercises-list">
+                            ${listHTML}
+                            ${workoutData.exercicios.length > 6 ? `<div style="color: #666; font-size: 30px;">+ ${workoutData.exercicios.length - 6} exercícios...</div>` : ''}
+                        </div>
+                    </div>
+                `;
+                card.innerHTML = content;
+            }
+
+            // Ativar verificação de imagem logo após renderizar
+            const img = card.querySelector('img');
+            if(img) {
+                img.onerror = function() {
+                    this.style.display = 'none';
+                    document.getElementById('svg-logo').style.display = 'flex';
+                };
+            }
+        }
+
+        // --- CHART JS ---
+        function initChart() {
+            const ctx = document.getElementById('radarChart');
+            if (!ctx) return;
+            if (chartInstance) chartInstance.destroy();
+
+            Chart.defaults.color = '#9CA3AF';
+            Chart.defaults.font.family = "'Nunito Sans', sans-serif";
+            Chart.defaults.font.size = 28;
+
+            // DADOS DINÂMICOS
+            const dynamicData = calculateDynamicStats();
+            // Determinar o máximo dinamicamente para o gráfico ficar bonito
+            const maxVal = Math.max(...dynamicData) + 2; 
+
+            chartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    // Ordem deve coincidir com calculateDynamicStats
+                    labels: ['Peito', 'Costas', 'Pernas', 'Ombros', 'Braços', 'Core'],
+                    datasets: [{
+                        label: 'Séries',
+                        data: dynamicData,
+                        backgroundColor: 'rgba(31, 191, 119, 0.4)',
+                        borderColor: '#1FBF77',
+                        borderWidth: 6,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: '#1FBF77',
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            angleLines: { color: 'rgba(255, 255, 255, 0.1)' },
+                            grid: { color: 'rgba(255, 255, 255, 0.1)' },
+                            pointLabels: { color: '#FFFFFF', font: { size: 32, weight: '700' } },
+                            ticks: { display: false, beginAtZero: true, max: maxVal }
+                        }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // --- UTILS ---
+        function resizePreview() {
+            const wrapper = document.getElementById('preview-wrapper');
+            const card = document.getElementById('share-card');
+            if(!wrapper || !card) return;
+            const scale = wrapper.offsetWidth / 1080;
+            card.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', resizePreview);
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            setTemplate('A');
+            resizePreview();
+        });
+
+        function downloadCard() {
+            const card = document.getElementById('share-card');
+            const btn = document.querySelector('.btn-share');
+            const originalText = btn.innerHTML;
+            
+            btn.innerHTML = 'Processando...';
+            btn.style.opacity = '0.7';
+
+            html2canvas(card, {
+                scale: 1, useCORS: true, backgroundColor: null 
+            }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `REPTECH_Treino.png`;
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+                btn.innerHTML = originalText; btn.style.opacity = '1';
+                confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#1FBF77', '#ffffff'] });
+            });
+        }
+    </script>
+</body>
+</html>
